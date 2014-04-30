@@ -88,24 +88,24 @@ Int Task_create (Task_TransferInfo ** infoPtr)
 }
 
 int *buf;
-int matrixSize;
-int *mat1 = buf;
-int *mat2 = buf + matrixSize * matrixSize;
-int *prod = buf + matrixSize * matrixSize * 2;
+int matrix_size;
 
 void matmul_dsp() {
     int i, j, k;
+    int *mat1 = buf;
+    int *mat2 = buf + matrix_size * matrix_size;
+    int *prod = buf + matrix_size * matrix_size * 2;
 
-    for (i = 0;i < matrixSize; i++)
+    for (i = 0;i < matrix_size; i++)
     {
-        for (j = 0; j < matrixSize; j++)
+        for (j = 0; j < matrix_size; j++)
         {
-            *(prod + i * matrixSize + j) = 0;
-            for(k = 0; k < matrixSize; k++) {
-                *(prod + i * matrixSize + j) += *(mat1 + i * matrixSize + k) * *(mat2 + k * matrixSize + j);
-                NOTIFY_notify(ID_GPP,MPCSXFER_IPS_ID,MPCSXFER_IPS_EVENTNO,(Uint32)*(prod + i * matrixSize + j));
+            prod[i * matrix_size + j] = 0;
+            for(k = 0; k < matrix_size; k++) {
+                prod[i * matrix_size + j] += mat1[i * matrix_size + k] * mat2[k * matrix_size + j];
             }
-              // prod[i][j] = prod[i][j]+mat1[i][k] * mat2[k][j];
+            NOTIFY_notify(ID_GPP,MPCSXFER_IPS_ID,MPCSXFER_IPS_EVENTNO,(Uint32)prod[i * matrix_size + j]);
+            // prod[i][j] = prod[i][j]+mat1[i][k] * mat2[k][j];
         }
     }
 }
@@ -114,7 +114,7 @@ Int Task_execute (Task_TransferInfo * info)
 {
     SEM_pend (&(info->notifySemObj), SYS_FOREVER);
 
-    BCACHE_inv ((Ptr)buf, matrixSize, TRUE) ;
+    BCACHE_inv ((Ptr)buf, matrix_size, TRUE) ;
 
     matmul_dsp();
 
@@ -162,7 +162,7 @@ static Void Task_notify (Uint32 eventNo, Ptr arg, Ptr info)
         buf =(int *)info ;
     }
     if (count==2) {
-        matrixSize = (int)info;
+        matrix_size = (int)info;
     }
 
     SEM_post(&(mpcsInfo->notifySemObj));

@@ -327,6 +327,32 @@ pool_notify_Create (IN Char8 * dspExecutable,
     return status ;
 }
 
+int matrix_verify(void)
+{
+    int i, j, k, match, temp;
+    int *mat1 = (int *)pool_notify_DataBuf;
+    int *mat2 = (int *)pool_notify_DataBuf + matrix_size * matrix_size;
+    int *prod = (int *)pool_notify_DataBuf + matrix_size * matrix_size * 2;
+    match = 1;
+    for (i = 0;i < matrix_size; i++)
+    {
+        for (j = 0; j < matrix_size; j++)
+        {
+            temp = 0;
+            for(k = 0; k < matrix_size; k++) {
+                temp += mat1[i * matrix_size + k] * mat2[k * matrix_size + j];
+            }
+#ifdef DEBUG
+                printf("GPP: %d, DSP: %d\n", temp, prod[i * matrix_size + j]);
+#endif
+            if (temp != prod[i * matrix_size + j]) {
+                match = 0;
+            }
+        }
+    }
+    return match;
+}
+
 void matrix_init(void) {
     unsigned int i, j, offset;
 
@@ -611,6 +637,7 @@ Void
 pool_notify_Notify (Uint32 eventNo, Pvoid arg, Pvoid info)
 {
     unsigned int i, j, offset;
+    int match;
     offset = 2 * matrix_size * matrix_size;
     // int *matrixC = (int *)pool_notify_DataBuf[2 * matrix_size * matrix_size];
 #ifdef DEBUG
@@ -629,6 +656,12 @@ pool_notify_Notify (Uint32 eventNo, Pvoid arg, Pvoid info)
                 // printf("\t%d ", matrixC[i * matrix_size + j]);
                 printf("\t%d ", pool_notify_DataBuf[offset + i * matrix_size + j]);
             }
+        }
+        match = matrix_verify();
+        if (match) {
+            printf("match\n");
+        } else {
+            printf("not match\n");
         }
     }
 
