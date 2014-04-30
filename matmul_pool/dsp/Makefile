@@ -217,6 +217,6 @@ clean:
 .PHONY: send
 send:
 	@echo "Sending '$(BINDIR_D)/$(BIN)' to beagle board (DEBUG MODE) ..."
-	scp $(BINDIR_D)/$(BIN) root@192.168.0.202:/home/root/matmul_pool/.
+	scp $(BINDIR_D)/$(BIN) root@192.168.0.202:/home/root/.
 
 

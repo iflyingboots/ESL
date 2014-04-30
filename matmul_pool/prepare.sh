@@ -1,10 +1,12 @@
 #!/bin/sh
 
-cd dsp; make
+cd dsp
 make
-make send
+# make send
+cp Debug/pool_notify.out ../
 cd ..
 cd gpp
 make
-make send
+cp Debug/pool_notify ../
+# make send
 

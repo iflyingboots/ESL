@@ -316,7 +316,9 @@ pool_notify_Create (IN Char8 * dspExecutable,
                 " Status = [0x%x]\n",
                  (int)status) ;
     }
-
+#ifdef DEBUG
+    printf("NOTIFY_notify () matrix_size: %lu\n", (Uint32)matrix_size);
+#endif
 
 #ifdef DEBUG
     printf ("Leaving pool_notify_Create ()\n") ;
@@ -345,10 +347,10 @@ void matrix_init(void) {
             /* B */
             pool_notify_DataBuf[j + i * matrix_size + offset] = i + j * 3;
             /* C */
-            pool_notify_DataBuf[j + i * matrix_size + offset * 2] = 0;
+            /* @TODO */
+            pool_notify_DataBuf[j + i * matrix_size + offset * 2] = 888;
         }
     }
-
 
 
 #ifdef DEBUG
@@ -409,6 +411,10 @@ pool_notify_Execute (IN Uint32 numIterations, Uint8 processorId)
 #endif
 
 #if defined(DSP)
+
+#ifdef DEBUG
+    printf ("Defined DSP\n") ;
+#endif
     POOL_writeback (POOL_makePoolId(processorId, SAMPLE_POOL_ID),
                     pool_notify_DataBuf,
                     pool_notify_BufferSize);
@@ -569,8 +575,14 @@ pool_notify_Main (IN Char8 * dspExecutable,
                                      0) ;
 
         if (DSP_SUCCEEDED (status)) {
+            /* @TODO: remove pool_notify_NumIterations */
             status = pool_notify_Execute (pool_notify_NumIterations, 0) ;
-         }
+        } else {
+            printf ("pool_notify_Create () failed. Status = [0x%x]\n",
+                         (int)status) ;
+        }
+
+
 
          pool_notify_Delete (processorId) ;
 
@@ -607,7 +619,7 @@ pool_notify_Notify (Uint32 eventNo, Pvoid arg, Pvoid info)
     /* Post the semaphore. */
     if((int)info==0) {
         sem_post(&sem);
-    } else {
+    } else if ((int)info == 999) {
         printf(" Result on DSP is %d \n", (int)info);
         for (i = 0;i < matrix_size; i++)
         {

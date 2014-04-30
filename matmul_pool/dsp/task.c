@@ -89,26 +89,25 @@ Int Task_create (Task_TransferInfo ** infoPtr)
 
 int *buf;
 int matrixSize;
+int *mat1 = buf;
+int *mat2 = buf + matrixSize * matrixSize;
+int *prod = buf + matrixSize * matrixSize * 2;
 
 void matmul_dsp() {
     int i, j, k;
-
-    int *mat1 = buf;
-    int *mat2 = buf + matrixSize * matrixSize;
-    int *prod = buf + matrixSize * matrixSize * 2;
 
     for (i = 0;i < matrixSize; i++)
     {
         for (j = 0; j < matrixSize; j++)
         {
             *(prod + i * matrixSize + j) = 0;
-            for(k = 0; k < matrixSize; k++)
-                *(prod + i * matrixSize + j) = *(prod + i * matrixSize + j) + *(mat1 + i * matrixSize + k) * *(mat2 + k * matrixSize + j);
+            for(k = 0; k < matrixSize; k++) {
+                *(prod + i * matrixSize + j) += *(mat1 + i * matrixSize + k) * *(mat2 + k * matrixSize + j);
+                NOTIFY_notify(ID_GPP,MPCSXFER_IPS_ID,MPCSXFER_IPS_EVENTNO,(Uint32)*(prod + i * matrixSize + j));
+            }
               // prod[i][j] = prod[i][j]+mat1[i][k] * mat2[k][j];
         }
     }
-
-    NOTIFY_notify(ID_GPP,MPCSXFER_IPS_ID,MPCSXFER_IPS_EVENTNO,(Uint32)1);
 }
 
 Int Task_execute (Task_TransferInfo * info)
@@ -119,7 +118,10 @@ Int Task_execute (Task_TransferInfo * info)
 
     matmul_dsp();
 
-    // NOTIFY_notify(ID_GPP,MPCSXFER_IPS_ID,MPCSXFER_IPS_EVENTNO,(Uint32)0);
+    NOTIFY_notify(ID_GPP,MPCSXFER_IPS_ID,MPCSXFER_IPS_EVENTNO,(Uint32)0);
+    NOTIFY_notify(ID_GPP,MPCSXFER_IPS_ID,MPCSXFER_IPS_EVENTNO,(Uint32)999);
+
+
     // NOTIFY_notify(ID_GPP,MPCSXFER_IPS_ID,MPCSXFER_IPS_EVENTNO,(Uint32)sum);
 
     return SYS_OK;
