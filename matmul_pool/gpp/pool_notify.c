@@ -449,8 +449,7 @@ pool_notify_Execute (IN Uint32 numIterations, Uint8 processorId)
                          AddrType_Dsp,
                          (Void *) pool_notify_DataBuf,
                          AddrType_Usr) ;
-    /* TODO: 1? */
-    // NOTIFY_notify (processorId,pool_notify_IPS_ID,pool_notify_IPS_EVENTNO,1);
+    NOTIFY_notify (processorId,pool_notify_IPS_ID,pool_notify_IPS_EVENTNO,1);
 
     sem_wait(&sem);
 #endif
