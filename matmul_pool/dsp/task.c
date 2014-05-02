@@ -83,28 +83,39 @@ Int Task_create (Task_TransferInfo ** infoPtr)
      */
     SEM_pend (&(info->notifySemObj), SYS_FOREVER) ;
     SEM_pend (&(info->notifySemObj), SYS_FOREVER) ;
+    SEM_pend (&(info->notifySemObj), SYS_FOREVER) ;
 
     return status ;
 }
 
-int *buf;
+Uint16* buf;
+int length;
 int matrix_size;
 
 void matmul_dsp() {
-    int i, j, k;
-    int *mat1 = buf;
-    int *mat2 = buf + matrix_size * matrix_size;
-    int *prod = buf + matrix_size * matrix_size * 2;
+    Uint32 i, j, k;
+    // int *mat1 = buf;
+    // mat1 = buf
+    // int *mat2 = buf + matrix_size * matrix_size;
+    // mat2 = buf[matrix_size * matrix_size]
+    // int *prod = buf + matrix_size * matrix_size * 2;
+
+    // for (i = 0; i < matrix_size * matrix_size * 3; i++) {
+    //     NOTIFY_notify(ID_GPP,MPCSXFER_IPS_ID,MPCSXFER_IPS_EVENTNO,buf[i]);
+    // }
+    // return;
 
     for (i = 0;i < matrix_size; i++)
     {
         for (j = 0; j < matrix_size; j++)
         {
-            prod[i * matrix_size + j] = 0;
+            // prod[i * matrix_size + j] = 0;
+            buf[matrix_size * matrix_size * 2 + i * matrix_size + j] = 0;
             for(k = 0; k < matrix_size; k++) {
-                prod[i * matrix_size + j] += mat1[i * matrix_size + k] * mat2[k * matrix_size + j];
+                buf[matrix_size * matrix_size * 2 + i * matrix_size + j] = buf[matrix_size * matrix_size * 2 + i * matrix_size + j] + buf[i * matrix_size + k] * buf[matrix_size * matrix_size + k * matrix_size + j];
             }
-            NOTIFY_notify(ID_GPP,MPCSXFER_IPS_ID,MPCSXFER_IPS_EVENTNO,(Uint32)prod[i * matrix_size + j]);
+            // NOTIFY_notify(ID_GPP,MPCSXFER_IPS_ID,MPCSXFER_IPS_EVENTNO,(Uint32)buf[i * matrix_size + j + matrix_size * matrix_size * 2]);
+            // NOTIFY_notify(ID_GPP,MPCSXFER_IPS_ID,MPCSXFER_IPS_EVENTNO,(Uint32)buf[matrix_size * matrix_size * 2 + i * matrix_size + j]);
             // prod[i][j] = prod[i][j]+mat1[i][k] * mat2[k][j];
         }
     }
@@ -114,9 +125,11 @@ Int Task_execute (Task_TransferInfo * info)
 {
     SEM_pend (&(info->notifySemObj), SYS_FOREVER);
 
-    BCACHE_inv ((Ptr)buf, matrix_size, TRUE) ;
+    BCACHE_inv ((Ptr)buf, length, TRUE) ;
 
     matmul_dsp();
+
+    BCACHE_wb ((Ptr)buf, length, TRUE) ;
 
     NOTIFY_notify(ID_GPP,MPCSXFER_IPS_ID,MPCSXFER_IPS_EVENTNO,(Uint32)0);
     NOTIFY_notify(ID_GPP,MPCSXFER_IPS_ID,MPCSXFER_IPS_EVENTNO,(Uint32)999);
@@ -159,9 +172,12 @@ static Void Task_notify (Uint32 eventNo, Ptr arg, Ptr info)
 
     count++;
     if (count==1) {
-        buf =(int *)info ;
+        buf =(Uint16 *)info ;
     }
     if (count==2) {
+        length = (int)info;
+    }
+    if (count==3) {
         matrix_size = (int)info;
     }
 

@@ -11,9 +11,9 @@ DSPLINK := /data/usr/local/share/bbframework/platform/beagle-linux/tools/dsplink
 #   ----------------------------------------------------------------------------
 SRCS := pool_notify.c main.c
 OBJS :=
-DEBUG :=
-LDFLAGS := -lpthread -lm -static
-CFLAGS := -DDSP -DDEBUG
+DEBUG := -DDEBUG
+LDFLAGS := -lpthread -lm -static -mfpu=neon -ftree-vectorize -O3
+CFLAGS := -DDSP
 LIBS :=
 BIN := pool_notify
 

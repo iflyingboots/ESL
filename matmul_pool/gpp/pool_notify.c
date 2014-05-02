@@ -304,15 +304,27 @@ pool_notify_Create (IN Char8 * dspExecutable,
                  (int)status) ;
     }
 
+    status = NOTIFY_notify (processorId,
+                            pool_notify_IPS_ID,
+                            pool_notify_IPS_EVENTNO,
+                            (Uint32) pool_notify_BufferSize);
+
+    if (DSP_FAILED (status)) {
+        printf ("NOTIFY_notify () sending buf length failed."
+                " Status = [0x%x]\n",
+                 (int)status) ;
+    }
+
     /* Matrix size */
+
     status = NOTIFY_notify (processorId,
                             pool_notify_IPS_ID,
                             pool_notify_IPS_EVENTNO,
                             (Uint32) matrix_size);
-    /* TODO: check the type of matrix_size */
+
 
     if (DSP_FAILED (status)) {
-        printf ("NOTIFY_notify () sending matrixSize failed."
+        printf ("NOTIFY_notify () sending matrix_size failed."
                 " Status = [0x%x]\n",
                  (int)status) ;
     }
@@ -329,41 +341,31 @@ pool_notify_Create (IN Char8 * dspExecutable,
 
 int matrix_verify(void)
 {
-    int i, j, k, match, temp;
-    int *mat1 = (int *)pool_notify_DataBuf;
-    int *mat2 = (int *)pool_notify_DataBuf + matrix_size * matrix_size;
-    int *prod = (int *)pool_notify_DataBuf + matrix_size * matrix_size * 2;
-    match = 1;
+    unsigned int i, j, k, temp;
     for (i = 0;i < matrix_size; i++)
     {
         for (j = 0; j < matrix_size; j++)
         {
             temp = 0;
             for(k = 0; k < matrix_size; k++) {
-                temp += mat1[i * matrix_size + k] * mat2[k * matrix_size + j];
+                temp += pool_notify_DataBuf[i * matrix_size + k] * pool_notify_DataBuf[matrix_size * matrix_size + k * matrix_size + j];
             }
-#ifdef DEBUG
-                printf("GPP: %d, DSP: %d\n", temp, prod[i * matrix_size + j]);
-#endif
-            if (temp != prod[i * matrix_size + j]) {
-                match = 0;
+
+            if (temp != pool_notify_DataBuf[matrix_size * matrix_size * 2 + i * matrix_size + j]) {
+                return 0;
             }
         }
     }
-    return match;
+    return 1;
 }
 
 void matrix_init(void) {
-    unsigned int i, j, offset;
+    Uint32 i, j, offset;
 
 #ifdef DEBUG
     printf ("Entering matrix_init ()\n") ;
 #endif
 
-    // Initialize the array with something
-    // for(i=0;i<pool_notify_BufferSize;i++) {
-    //    pool_notify_DataBuf[i] = i % 20 + i % 5;
-    // }
     offset = matrix_size * matrix_size;
     for (i = 0; i < matrix_size; i++) {
         for (j = 0; j < matrix_size; j++)
@@ -373,8 +375,8 @@ void matrix_init(void) {
             /* B */
             pool_notify_DataBuf[j + i * matrix_size + offset] = i + j * 3;
             /* C */
-            /* @TODO */
-            pool_notify_DataBuf[j + i * matrix_size + offset * 2] = 888;
+            pool_notify_DataBuf[j + i * matrix_size + offset * 2] = 0;
+            // printf("mat1:%d mat2:%d mat3:%d\n", pool_notify_DataBuf[j + i * matrix_size], pool_notify_DataBuf[j + i * matrix_size + offset], pool_notify_DataBuf[j + i * matrix_size + offset*2]);
         }
     }
 
@@ -438,9 +440,6 @@ pool_notify_Execute (IN Uint32 numIterations, Uint8 processorId)
 
 #if defined(DSP)
 
-#ifdef DEBUG
-    printf ("Defined DSP\n") ;
-#endif
     POOL_writeback (POOL_makePoolId(processorId, SAMPLE_POOL_ID),
                     pool_notify_DataBuf,
                     pool_notify_BufferSize);
@@ -450,7 +449,8 @@ pool_notify_Execute (IN Uint32 numIterations, Uint8 processorId)
                          AddrType_Dsp,
                          (Void *) pool_notify_DataBuf,
                          AddrType_Usr) ;
-    NOTIFY_notify (processorId,pool_notify_IPS_ID,pool_notify_IPS_EVENTNO,1);
+    /* TODO: 1? */
+    // NOTIFY_notify (processorId,pool_notify_IPS_ID,pool_notify_IPS_EVENTNO,1);
 
     sem_wait(&sem);
 #endif
@@ -619,7 +619,9 @@ pool_notify_Main (IN Char8 * dspExecutable,
                          "pool_notify application\n") ;
     }
 
+#ifdef DEBUG
     printf ("====================================================\n") ;
+#endif
 }
 
 /** ----------------------------------------------------------------------------
@@ -636,27 +638,24 @@ STATIC
 Void
 pool_notify_Notify (Uint32 eventNo, Pvoid arg, Pvoid info)
 {
-    unsigned int i, j, offset;
     int match;
-    offset = 2 * matrix_size * matrix_size;
-    // int *matrixC = (int *)pool_notify_DataBuf[2 * matrix_size * matrix_size];
+    static int count = 0;
+    count++;
+
 #ifdef DEBUG
-    printf("Notification %8d \n", (int)info);
+    printf("Notification from DSP: %5d \n", (int)info);
 #endif
     /* Post the semaphore. */
-    if((int)info==0) {
+    if(count == 1) {
         sem_post(&sem);
-    } else if ((int)info == 999) {
-        printf(" Result on DSP is %d \n", (int)info);
-        for (i = 0;i < matrix_size; i++)
-        {
-            printf("\n");
-            for (j = 0; j < matrix_size; j++)
-            {
-                // printf("\t%d ", matrixC[i * matrix_size + j]);
-                printf("\t%d ", pool_notify_DataBuf[offset + i * matrix_size + j]);
-            }
-        }
+    }
+
+    if(count == 2) {
+        sem_post(&sem);
+    }
+
+#ifdef DEBUG
+    if (count == 3) {
         match = matrix_verify();
         if (match) {
             printf("match\n");
@@ -664,6 +663,7 @@ pool_notify_Notify (Uint32 eventNo, Pvoid arg, Pvoid info)
             printf("not match\n");
         }
     }
+#endif
 
 }
 
