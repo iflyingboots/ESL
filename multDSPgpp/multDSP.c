@@ -245,6 +245,24 @@ extern "C"
         //SYSTEM_0Print("Leaving multDSP_Create ()\n");
         return status;
     }
+    
+    
+    void matMult2(Uint8 Size, Uint32 *mat1, Uint32 *mat2, Uint32 *prod)
+	{
+		Uint8 i, j, k;
+		for (j = 0;j < Size/2; j++)
+		{
+			for (i = 0; i < Size; i++)
+			{
+				prod[i+j*Size]=0;
+				for(k=0;k<Size;k++)
+					prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[i+k*Size];
+					//prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[k+i*Size];
+			}
+		}
+	} 
+    
+ 
 
 
     /** ============================================================================
@@ -271,6 +289,8 @@ extern "C"
         if (DSP_FAILED(status)) {
 			SYSTEM_1Print("MSGQ_alloc () failed. Status = [0x%x]\n", status);
 		}
+		
+		SYSTEM_GetStartTime();
 		
 		/* Send the first matrix */
 		MSGQ_setMsgId(msg, sequenceNumber);
@@ -302,14 +322,21 @@ extern "C"
 			SYSTEM_1Print("MSGQ_put () failed. Status = [0x%x]\n", status);
 		}
 		
+		matMult2(Size, mat1, mat2, prod_dsp);
 		/* Receive the result. */
 		status = MSGQ_get(SampleGppMsgq, WAIT_FOREVER, (MsgqMsg *) &msg);
-		memcpy(prod_dsp, &msg->mat, nrElements * sizeof(Uint32));
+		if (Size % 2 == 0) memcpy(prod_dsp + nrElements/2, &msg->mat+ nrElements/2, nrElements/2 * sizeof(Uint32));
+		else memcpy(prod_dsp + (nrElements-Size)/2, &msg->mat+ (nrElements-Size)/2, (nrElements+Size)/2 * sizeof(Uint32));
 		if (DSP_FAILED(status))
 		{
 			SYSTEM_1Print("MSGQ_get () failed. Status = [0x%x]\n", status);
 		}
 		sequenceNumber++;
+		
+		
+		
+		SYSTEM_GetEndTime();
+		SYSTEM_GetProfileInfo("dsp");
 
 		MSGQ_free((MsgqMsg) msg);
         //SYSTEM_0Print("Leaving multDSP_Execute ()\n");

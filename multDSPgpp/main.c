@@ -85,30 +85,31 @@ extern "C"
 					for (i = 0; i < Size; i++)
 					{
 						mat2[i+j*Size] = i+j*3;
+						//mat2[i+j*Size] = j+i*3;
 					}
 				}
 				
-				SYSTEM_GetStartTime();
+
 				matMult(Size,mat1,mat2,prod_gpp);
-				SYSTEM_GetEndTime();
-				SYSTEM_GetProfileInfo();
 
 
-				SYSTEM_GetStartTime();
+
+				
                 multDSP_Main(dspExecutable, strMatSize, mat1, mat2, prod_dsp, strProcessorId);
-                SYSTEM_GetEndTime();
-				SYSTEM_GetProfileInfo();
+                
                             
                 match = 1;
                 for(j = 0; j < Size; j++)
 				{
 					for (i = 0; i < Size; i++)
 					{
+						//printf("%ld %ld   ", prod_gpp[i+j*Size], prod_dsp[i+j*Size]);
 						if (prod_gpp[i+j*Size] != prod_dsp[i+j*Size]) match = 0;
 					}
+					//printf("\n");
 				}
 				
-				printf("\n%ld %ld\n", prod_gpp[10], prod_dsp[10]);
+				//printf("\n%ld %ld\n", prod_gpp[10], prod_dsp[10]);
 				
 				if (match) printf("Let's party!!!!!!!!!!!!\n");
 				else printf("Let's cry\n");
@@ -120,7 +121,7 @@ extern "C"
     
 void matMult(Uint8 Size, Uint32 *mat1, Uint32 *mat2, Uint32 *prod)
 {
-	int i, j, k;
+	Uint8 i, j, k;
 	for (j = 0;j < Size; j++)
 	{
 		for (i = 0; i < Size; i++)
@@ -128,6 +129,7 @@ void matMult(Uint8 Size, Uint32 *mat1, Uint32 *mat2, Uint32 *prod)
 			prod[i+j*Size]=0;
 			for(k=0;k<Size;k++)
 				prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[i+k*Size];
+				//prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[k+i*Size];
 		}
 	}
 }

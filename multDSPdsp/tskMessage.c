@@ -28,6 +28,9 @@
 #include <multDSP_config.h>
 #include <tskMessage.h>
 
+#include <string.h>
+#include <stdlib.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -128,19 +131,26 @@ Int TSKMESSAGE_create(TSKMESSAGE_TransferInfo** infoPtr)
     return status;
 }
 
-void matMult(Uint8 Size, Uint32 *mat1, Uint32 *mat2, Uint32 *prod)
-{
-	int i, j, k;
-	for (j = 0;j < Size; j++)
+
+
+    void matMult2(Uint8 Size, Uint32 *mat1, Uint32 *mat2, Uint32 *prod)
 	{
-		for (i = 0; i < Size; i++)
+		Uint8 i, j, k;
+		for (j = Size/2;j < Size; j++)
 		{
-			prod[i+j*Size]=0;
-			for(k=0;k<Size;k++)
-				prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[i+k*Size];
+			for (i = 0; i < Size; i++)
+			{
+				prod[i+j*Size]=0;
+				for(k=0;k<Size;k++)
+					prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[i+k*Size];
+					//prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[k+i*Size];
+			}
 		}
-	}
-}
+	} 
+
+
+
+
 /** ============================================================================
  *  @func   TSKMESSAGE_execute
  *
@@ -155,6 +165,7 @@ Int TSKMESSAGE_execute(TSKMESSAGE_TransferInfo* info)
     Int status = SYS_OK;
     ControlMsg* msg;
     Uint16 nrElements = info->Size * info->Size;
+
 
 
 	/* Get the first matrix */
@@ -242,12 +253,15 @@ Int TSKMESSAGE_execute(TSKMESSAGE_TransferInfo* info)
         SET_FAILURE_REASON(status);
     }
     
-    matMult(Size,mat1,mat2,prod_dsp);
+    matMult2(Size,mat1,mat2,prod_dsp);
 	
 	// Send the result
     MSGQ_setMsgId((MSGQ_Msg) msg, info->sequenceNumber);
     MSGQ_setSrcQueue((MSGQ_Msg) msg, info->localMsgq);
-    memcpy( &msg->mat, prod_dsp, nrElements * sizeof(Uint32));
+    
+    if (Size % 2 == 0) memcpy( &msg->mat+ nrElements/2, prod_dsp+ nrElements/2, nrElements/2 * sizeof(Uint32));
+    else memcpy( &msg->mat+ (nrElements-Size)/2, prod_dsp+ (nrElements-Size)/2, (nrElements+Size)/2 * sizeof(Uint32));
+    
 	status = MSGQ_put(info->locatedMsgq, (MSGQ_Msg) msg);
 	if (status != SYS_OK)
 	{
