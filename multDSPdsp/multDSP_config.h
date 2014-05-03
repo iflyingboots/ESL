@@ -50,7 +50,7 @@ extern "C" {
 typedef struct ControlMsg 
 {
     MSGQ_MsgHeader header;
-    Uint32 *mat;
+    Uint16 *mat;
 } ControlMsg;
 
 /* Messaging buffer used by the application.
