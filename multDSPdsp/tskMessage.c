@@ -46,7 +46,8 @@ Uint8 dspMsgQName[DSP_MAX_STRLEN];
 
 /* Number of iterations message transfers to be done by the application. */
 extern Uint8 Size;
-Uint32 mat1[MAXELEMENTS], mat2[MAXELEMENTS], prod_dsp[MAXELEMENTS];
+Uint16 mat1[MAXELEMENTS], mat2[MAXELEMENTS];
+Uint32 prod_dsp[MAXELEMENTS];
 
 
 /** ============================================================================
@@ -133,7 +134,7 @@ Int TSKMESSAGE_create(TSKMESSAGE_TransferInfo** infoPtr)
 
 
 
-    void matMult2(Uint8 Size, Uint32 *mat1, Uint32 *mat2, Uint32 *prod)
+    void matMult2(Uint8 Size, Uint16 *mat1, Uint16 *mat2, Uint32 *prod)
 	{
 		Uint8 i, j, k;
 		for (j = Size/2;j < Size; j++)
@@ -142,8 +143,8 @@ Int TSKMESSAGE_create(TSKMESSAGE_TransferInfo** infoPtr)
 			{
 				prod[i+j*Size]=0;
 				for(k=0;k<Size;k++)
-					prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[i+k*Size];
-					//prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[k+i*Size];
+					//prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[i+k*Size];
+					prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[k+i*Size];
 			}
 		}
 	} 
@@ -194,7 +195,7 @@ Int TSKMESSAGE_execute(TSKMESSAGE_TransferInfo* info)
 		}
 		else
 		{
-			memcpy( mat1, &msg->mat, nrElements *  sizeof(Uint32) );
+			memcpy( mat1, &msg->mat, nrElements *  sizeof(Uint16) );
 		}
 	}
 	else
@@ -245,7 +246,7 @@ Int TSKMESSAGE_execute(TSKMESSAGE_TransferInfo* info)
 		}
 		else
 		{
-			memcpy( mat2, &msg->mat, nrElements *  sizeof(Uint32) );
+			memcpy( mat2, &msg->mat, nrElements *  sizeof(Uint16) );
 		}
 	}
 	else
@@ -259,8 +260,8 @@ Int TSKMESSAGE_execute(TSKMESSAGE_TransferInfo* info)
     MSGQ_setMsgId((MSGQ_Msg) msg, info->sequenceNumber);
     MSGQ_setSrcQueue((MSGQ_Msg) msg, info->localMsgq);
     
-    if (Size % 2 == 0) memcpy( &msg->mat+ nrElements/2, prod_dsp+ nrElements/2, nrElements/2 * sizeof(Uint32));
-    else memcpy( &msg->mat+ (nrElements-Size)/2, prod_dsp+ (nrElements-Size)/2, (nrElements+Size)/2 * sizeof(Uint32));
+    if (Size % 2 == 0) memcpy( (Uint32*)&msg->mat, prod_dsp+ nrElements/2, nrElements/2 * sizeof(Uint32));
+    else memcpy( (Uint32*)&msg->mat, prod_dsp+ (nrElements-Size)/2, (nrElements+Size)/2 * sizeof(Uint32));
     
 	status = MSGQ_put(info->locatedMsgq, (MSGQ_Msg) msg);
 	if (status != SYS_OK)

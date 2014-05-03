@@ -80,7 +80,7 @@ extern "C"
      *  @see    multDSP_Delete , multDSP_Create
      *  ============================================================================
      */
-    NORMAL_API DSP_STATUS multDSP_Execute( IN Char8* strMatSize, IN Uint32 *mat1, IN Uint32 *mat2, IN Uint32 *prod_dsp, IN Uint8 processorId);
+    NORMAL_API DSP_STATUS multDSP_Execute( IN Char8* strMatSize, IN Uint16 *mat1, IN Uint16 *mat2, IN Uint32 *prod_dsp, IN Uint8 processorId);
 
 
     /** ============================================================================
@@ -134,7 +134,7 @@ extern "C"
      *  @see    multDSP_Create, multDSP_Execute, multDSP_Delete
      *  ============================================================================
      */
-    NORMAL_API Void multDSP_Main(IN Char8* dspExecutable, IN Char8* strMatSize, IN Uint32 *mat1, IN Uint32 *mat2, IN Uint32 *prod_dsp, IN Char8* strProcessorId);
+    NORMAL_API Void multDSP_Main(IN Char8* dspExecutable, IN Char8* strMatSize, IN Uint16 *mat1, IN Uint16 *mat2, IN Uint32 *prod_dsp, IN Char8* strProcessorId);
 
 
 #if defined (DA8XXGEM)
@@ -167,7 +167,7 @@ extern "C"
      *  @see    multDSP_Create, multDSP_Execute, multDSP_Delete
      *  ============================================================================
      */
-    NORMAL_API Void multDSP_Main_DA8XX(IN Char8* dspExecutable, IN Char8* MatSize, IN Uint32 *mat1, IN Uint32 *mat2, IN Uint32 *prod, IN Char8* strProcessorId, IN Char8* strDspAddr, IN Char8* strShmAddr, IN Char8* strArgsAddr);
+    NORMAL_API Void multDSP_Main_DA8XX(IN Char8* dspExecutable, IN Char8* MatSize, IN Uint16 *mat1, IN Uint16 *mat2, IN Uint32 *prod, IN Char8* strProcessorId, IN Char8* strDspAddr, IN Char8* strShmAddr, IN Char8* strArgsAddr);
 #endif
 
 #if defined (__cplusplus)

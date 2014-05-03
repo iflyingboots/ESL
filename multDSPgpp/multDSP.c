@@ -53,7 +53,7 @@ extern "C"
     typedef struct ControlMsg
     {
         MSGQ_MsgHeader header;
-        Uint32 *mat;
+        Uint16 *mat;
     } ControlMsg;
 
     /* Messaging buffer used by the application.
@@ -247,7 +247,7 @@ extern "C"
     }
     
     
-    void matMult2(Uint8 Size, Uint32 *mat1, Uint32 *mat2, Uint32 *prod)
+    void matMult2(Uint8 Size, Uint16 *mat1, Uint16 *mat2, Uint32 *prod)
 	{
 		Uint8 i, j, k;
 		for (j = 0;j < Size/2; j++)
@@ -256,8 +256,8 @@ extern "C"
 			{
 				prod[i+j*Size]=0;
 				for(k=0;k<Size;k++)
-					prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[i+k*Size];
-					//prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[k+i*Size];
+					//prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[i+k*Size];
+					prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[k+i*Size];
 			}
 		}
 	} 
@@ -273,7 +273,7 @@ extern "C"
      *  @modif  None
      *  ============================================================================
      */
-    NORMAL_API DSP_STATUS multDSP_Execute( IN Char8* strMatSize, IN Uint32 *mat1, IN Uint32 *mat2, IN Uint32 *prod_dsp, IN Uint8 processorId)
+    NORMAL_API DSP_STATUS multDSP_Execute( IN Char8* strMatSize, IN Uint16 *mat1, IN Uint16 *mat2, IN Uint32 *prod_dsp, IN Uint8 processorId)
     {
         DSP_STATUS  status = DSP_SOK;
         Uint16 sequenceNumber = 0;
@@ -284,7 +284,7 @@ extern "C"
 
         //SYSTEM_0Print("Entered multDSP_Execute ()\n");
         
-        status = MSGQ_alloc(SAMPLE_POOL_ID, DSPLINK_ALIGN (sizeof (MSGQ_MsgHeader) + nrElements * sizeof(Uint32), DSPLINK_BUF_ALIGN), (MSGQ_Msg*) &msg);
+        status = MSGQ_alloc(SAMPLE_POOL_ID, DSPLINK_ALIGN (sizeof (MSGQ_MsgHeader) + 127*127 * sizeof(Uint32), DSPLINK_BUF_ALIGN), (MSGQ_Msg*) &msg);
         
         if (DSP_FAILED(status)) {
 			SYSTEM_1Print("MSGQ_alloc () failed. Status = [0x%x]\n", status);
@@ -294,7 +294,7 @@ extern "C"
 		
 		/* Send the first matrix */
 		MSGQ_setMsgId(msg, sequenceNumber);
-		memcpy(&msg->mat, mat1, nrElements * sizeof(Uint32));
+		memcpy(&msg->mat, mat1, nrElements * sizeof(Uint16));
 		status = MSGQ_put(SampleDspMsgq, (MsgqMsg) msg);
 		if (DSP_FAILED(status))
 		{
@@ -314,7 +314,7 @@ extern "C"
 		
 		/* Send the second matrix */
 		MSGQ_setMsgId(msg, sequenceNumber);
-		memcpy(&msg->mat, mat2, nrElements * sizeof(Uint32));
+		memcpy(&msg->mat, mat2, nrElements * sizeof(Uint16));
 		status = MSGQ_put(SampleDspMsgq, (MsgqMsg) msg);
 		if (DSP_FAILED(status))
 		{
@@ -325,8 +325,8 @@ extern "C"
 		matMult2(Size, mat1, mat2, prod_dsp);
 		/* Receive the result. */
 		status = MSGQ_get(SampleGppMsgq, WAIT_FOREVER, (MsgqMsg *) &msg);
-		if (Size % 2 == 0) memcpy(prod_dsp + nrElements/2, &msg->mat+ nrElements/2, nrElements/2 * sizeof(Uint32));
-		else memcpy(prod_dsp + (nrElements-Size)/2, &msg->mat+ (nrElements-Size)/2, (nrElements+Size)/2 * sizeof(Uint32));
+		if (Size % 2 == 0) memcpy(prod_dsp + nrElements/2, (Uint32 *)&msg->mat, nrElements/2 * sizeof(Uint32));
+		else memcpy(prod_dsp + (nrElements-Size)/2, (Uint32 *)&msg->mat, (nrElements+Size)/2 * sizeof(Uint32));
 		if (DSP_FAILED(status))
 		{
 			SYSTEM_1Print("MSGQ_get () failed. Status = [0x%x]\n", status);
@@ -441,7 +441,7 @@ extern "C"
      *  @modif  None
      *  ============================================================================
      */
-    NORMAL_API Void multDSP_Main(IN Char8* dspExecutable, IN Char8* strMatSize, IN Uint32 *mat1, IN Uint32 *mat2, IN Uint32 *prod_dsp, IN Char8* strProcessorId)
+    NORMAL_API Void multDSP_Main(IN Char8* dspExecutable, IN Char8* strMatSize, IN Uint16 *mat1, IN Uint16 *mat2, IN Uint32 *prod_dsp, IN Char8* strProcessorId)
     {
         DSP_STATUS status = DSP_SOK;
         Uint8 processorId = 0;
@@ -451,7 +451,7 @@ extern "C"
 
         //SYSTEM_0Print ("========== Sample Application : multDSP ==========\n");
         
-        SampleBufSizes[0] =  DSPLINK_ALIGN (sizeof (MSGQ_MsgHeader) + nrElements * sizeof(Uint32), DSPLINK_BUF_ALIGN);
+        SampleBufSizes[0] =  DSPLINK_ALIGN (sizeof (MSGQ_MsgHeader) + 127*127 * sizeof(Uint32), DSPLINK_BUF_ALIGN);
 
         if ((dspExecutable != NULL) && (strMatSize != NULL))
         {

@@ -19,9 +19,10 @@ extern "C"
 
 #define MAXSIZE 128*128
 	
-	Uint32 mat1[MAXSIZE], mat2[MAXSIZE], prod_gpp[MAXSIZE], prod_dsp[MAXSIZE];
+	Uint16 mat1[MAXSIZE], mat2[MAXSIZE];
+	Uint32 prod_gpp[MAXSIZE], prod_dsp[MAXSIZE];
 
-	void matMult(Uint8 Size, Uint32 *mat1, Uint32 *mat2, Uint32 *prod);
+	void matMult(Uint8 Size, Uint16 *mat1, Uint16 *mat2, Uint32 *prod);
 
 
     /** ============================================================================
@@ -84,8 +85,8 @@ extern "C"
 				{
 					for (i = 0; i < Size; i++)
 					{
-						mat2[i+j*Size] = i+j*3;
-						//mat2[i+j*Size] = j+i*3;
+						//mat2[i+j*Size] = i+j*3;
+						mat2[i+j*Size] = j+i*3;
 					}
 				}
 				
@@ -119,7 +120,7 @@ extern "C"
         return 0;
     }
     
-void matMult(Uint8 Size, Uint32 *mat1, Uint32 *mat2, Uint32 *prod)
+void matMult(Uint8 Size, Uint16 *mat1, Uint16 *mat2, Uint32 *prod)
 {
 	Uint8 i, j, k;
 	for (j = 0;j < Size; j++)
@@ -128,8 +129,8 @@ void matMult(Uint8 Size, Uint32 *mat1, Uint32 *mat2, Uint32 *prod)
 		{
 			prod[i+j*Size]=0;
 			for(k=0;k<Size;k++)
-				prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[i+k*Size];
-				//prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[k+i*Size];
+				//prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[i+k*Size];
+				prod[i+j*Size] = prod[i+j*Size] + mat1[k+j*Size] * mat2[k+i*Size];
 		}
 	}
 }
