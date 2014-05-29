@@ -29,7 +29,6 @@ int KLT_verbose = 1;
 
 typedef enum {SELECTING_ALL, REPLACING_SOME} selectionMode;
 
-extern Char8 *dspExecutable;
 
 
 /*********************************************************************
@@ -294,13 +293,17 @@ static float _minEigenvalue(float gxx, float gxy, float gyy)
 	return (float) ((gxx + gyy - sqrt((gxx - gyy) * (gxx - gyy) + 4 * gxy * gxy)) / 2.0f);
 }
 
+/**
+ * This function involves DSPLINK computation
+ */
 int _ComputeTrackability(KLT_TrackingContext tc, int window_hw, int window_hh, int *pointlist, int nrows, int ncols, _KLT_FloatImage gradx, _KLT_FloatImage grady)
 {
 	/* Compute trackability of each image pixel as the minimum
 	 of the two eigenvalues of the Z matrix */
-	register float gx, gy;
-	register float gxx, gxy, gyy;
-	register int xx, yy;
+	// register float gx, gy;
+	// register float gxx, gxy, gyy;
+	float gxx, gxy, gyy;
+	// register int xx, yy;
 	register int *ptr;
 	float val;
 	int npoints = 0;
@@ -310,8 +313,8 @@ int _ComputeTrackability(KLT_TrackingContext tc, int window_hw, int window_hh, i
 	int x, y;
 	int i;
 	// pool-related variables
-	int pool_size = 0;
-	char pool_size_char[80];
+	// int pool_size = 0;
+	// char pool_size_char[80];
 
 	if (borderx < window_hw)  borderx = window_hw;
 	if (bordery < window_hh)  bordery = window_hh;
@@ -326,33 +329,16 @@ int _ComputeTrackability(KLT_TrackingContext tc, int window_hw, int window_hh, i
 	for (y = bordery ; y < nrows - bordery ; y += tc->nSkippedPixels + 1)
 		for (x = borderx ; x < ncols - borderx ; x += tc->nSkippedPixels + 1)  {
 
-
-			pool_size = window_hw * window_hw * sizeof(int);
-			pool_size += window_hh * window_hh * sizeof(int);
-			sprintf(pool_size_char, "%d", pool_size);
-
-
-			// execute pool functions
-			pool_Main(dspExecutable, pool_size_char);
-
 			// move this fragment (2 loops) to DSP side
 
+			// GPP
 			// first, copy gradx, grady data
-			float *gradx_part = &gradx->data[ncols * (y - window_hh)];
-			float *grady_part = &grady->data[ncols * (y - window_hh)];
+			// note: the width is window_hh, but the step is ncols
+			float *gradx_part = &gradx->data[y - window_hh];
+			float *grady_part = &grady->data[y - window_hh];
+			// passing as Uint32 type
 
-			/* Sum the gradients in the surrounding window */
-			gxx = 0;  gxy = 0;  gyy = 0;
-			for (yy = y - window_hh ; yy <= y + window_hh ; yy++) {
-				for (xx = x - window_hw ; xx <= x + window_hw ; xx++)  {
-					gx = gradx->data[ncols * yy + xx];
-					gy = grady->data[ncols * yy + xx];
-					gxx += gx * gx;
-					gxy += gx * gy;
-					gyy += gy * gy;
-				}
-			}
-
+			pool_Execute(gradx_part, grady_part, ncols, &gxx, &gxy, &gyy);
 
 			/* Store the trackability of the pixel as the minimum
 			   of the two eigenvalues */

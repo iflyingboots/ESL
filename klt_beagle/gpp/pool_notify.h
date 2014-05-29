@@ -73,7 +73,8 @@ pool_Create (IN Char8 *dspExecutable,
  */
 NORMAL_API
 DSP_STATUS
-pool_Execute (IN Uint32 numIterations, IN Uint8 processorId) ;
+pool_Execute (IN float *gradxPart, IN float *gradyPart, IN Uint16 nCols,
+              IN float *gxxIn, IN float *gxyIn, IN float *gyyIn) ;
 
 
 /** ============================================================================
@@ -102,7 +103,7 @@ pool_Execute (IN Uint32 numIterations, IN Uint8 processorId) ;
  */
 NORMAL_API
 Void
-pool_Delete (IN Uint8 processorId) ;
+pool_Delete (void);
 
 
 /** ============================================================================
@@ -134,8 +135,8 @@ NORMAL_API
 Void
 pool_Main (IN Char8 *dspExecutable,
            IN Char8 *strBufferSize,
-           IN float *gradx_data,
-           IN float *grady_data) ;
+           IN Uint16 windowHw,
+           IN Uint16 windowHh) ;
 
 
 #endif /* !defined (pool_H) */

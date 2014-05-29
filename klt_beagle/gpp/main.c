@@ -34,10 +34,14 @@ int main (int argc, char **argv)
 	KLT_TrackingContext tc;
 	KLT_FeatureList fl;
 	KLT_FeatureTable ft;
-	int nFeatures = 512;
-	int nFrames = 10;
 	int ncols, nrows;
 	int i;
+	int window_hw, window_hh;
+	// TODO
+	int nFeatures = 512;
+	int nFrames = 10;
+	Char8 *strBufferSize = "512";
+
 
 	if (argc == 2) {
 		dspExecutable = argv[1];
@@ -53,6 +57,13 @@ int main (int argc, char **argv)
 	tc->sequentialMode = TRUE;
 	tc->writeInternalImages = FALSE;
 	tc->affineConsistencyCheck = -1;  /* set this to 2 to turn on affine consistency check */
+
+	window_hw = tc->window_width / 2;
+	window_hh = tc->window_height / 2;
+
+	// Just open the pool
+	pool_Main(dspExecutable, strBufferSize, (Uint16)window_hw, (Uint16)window_hh);
+
 
 	startTimer(&appTimer);
 	img1 = pgmReadFile("img0.pgm", NULL, &ncols, &nrows);
@@ -87,6 +98,7 @@ int main (int argc, char **argv)
 	KLTFreeTrackingContext(tc);
 	free(img1);
 	free(img2);
+	pool_Delete();
 
 	/* END KLT CONFIG */
 
