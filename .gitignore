@@ -1,2 +1,7 @@
-matmul_pool/**/Debug
-matmul_pool/**/Release
+matmul_pool/
+multDSPdsp/
+multDSPgpp/
+klt_beagle/gpp/Debug/*
+klt_beagle/gpp/Release/*
+klt_beagle/pool_notify.out
+klt_beagle/klt
