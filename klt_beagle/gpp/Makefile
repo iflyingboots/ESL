@@ -13,9 +13,9 @@ SRCS := pool_notify.c main.c \
 			convolve.c error.c pnmio.c pyramid.c selectGoodFeatures.c \
 			storeFeatures.c trackFeatures.c klt.c klt_util.c writeFeatures.c
 OBJS :=
-DEBUG :=
+DEBUG := -DDEBUG
 LDFLAGS := -lpthread -lm -static
-CFLAGS := -DDSP -DDEBUG -DNDEBUG -DKLT_USE_QSORT
+CFLAGS := -DDSP -DNDEBUG -DKLT_USE_QSORT -O3 -Wall -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize -mfloat-abi=softfp -funsafe-math-optimizations
 LIBS :=
 BIN := klt
 

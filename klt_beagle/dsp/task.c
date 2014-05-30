@@ -21,6 +21,11 @@
 
 extern Uint16 MPCSXFER_BufferSize ;
 
+// buf type may be very subtle..
+Int32 *buf;
+int length;
+int window_hh;
+int window_hw;
 int is_initial_loop;
 
 static Void Task_notify (Uint32 eventNo, Ptr arg, Ptr info) ;
@@ -96,12 +101,6 @@ Int Task_create (Task_TransferInfo **infoPtr)
 	return status ;
 }
 
-// buf type may be very subtle..
-Int32 *buf;
-int length;
-int window_hh;
-int window_hw;
-
 
 void calculate_grad()
 {
@@ -122,12 +121,18 @@ void calculate_grad()
 	NOTIFY_notify(ID_GPP, MPCSXFER_IPS_ID, MPCSXFER_IPS_EVENTNO, (Int32)gxx);
 	NOTIFY_notify(ID_GPP, MPCSXFER_IPS_ID, MPCSXFER_IPS_EVENTNO, (Int32)gxy);
 	NOTIFY_notify(ID_GPP, MPCSXFER_IPS_ID, MPCSXFER_IPS_EVENTNO, (Int32)gyy);
+
+	// NOTIFY_notify(ID_GPP, MPCSXFER_IPS_ID, MPCSXFER_IPS_EVENTNO, (Int32)buf[offset]);
+	// NOTIFY_notify(ID_GPP, MPCSXFER_IPS_ID, MPCSXFER_IPS_EVENTNO, (Int32)buf[offset + 1]);
+	// NOTIFY_notify(ID_GPP, MPCSXFER_IPS_ID, MPCSXFER_IPS_EVENTNO, (Int32)buf[offset + 2]);
+
 }
 
 Int Task_execute (Task_TransferInfo *info)
 {
     while (1) {
         SEM_pend(&(info->notifySemObj), SYS_FOREVER);
+        // TODO: cache policy
         BCACHE_inv ((Ptr)buf, length, TRUE) ;
         calculate_grad();
     }
@@ -176,19 +181,23 @@ static Void Task_notify (Uint32 eventNo, Ptr arg, Ptr info)
 		// buffer length
 		if (count == 2) {
 			length = (int)info;
+		}
+		// window_hh
+		if (count == 3) {
+			window_hh = (int)info;
+		}
+
+		// window_hw
+		if (count == 4) {
+			window_hw = (int)info;
 			count = 0;
             SEM_post(&(mpcsInfo->notifySemObj));
 		}
 	} else {
-		// window_hh
+		// ready to fire
         if (count == 1) {
-			window_hh = (int)info;
-		}
-		// window_hw
-		if (count == 2) {
-			window_hw = (int)info;
-			SEM_post(&(mpcsInfo->notifySemObj));
 		    count = 0;
+        	SEM_post(&(mpcsInfo->notifySemObj));
 		}
 	}
 

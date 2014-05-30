@@ -104,8 +104,8 @@ Int32 *pool_DataBuf = NULL ;
 
 float *gradx_data;
 float *grady_data;
-Uint16 window_hh;
-Uint16 window_hw;
+Uint32 window_hh;
+Uint32 window_hw;
 Uint16 ncols;
 float gxx;
 float gxy;
@@ -318,6 +318,26 @@ pool_Create (IN Char8 *dspExecutable,
 		        (int)status) ;
 	}
 
+	status = NOTIFY_notify (processorId,
+	                        pool_IPS_ID,
+	                        pool_IPS_EVENTNO,
+	                        (Uint32) window_hh);
+	if (DSP_FAILED (status)) {
+		printf ("Notify window_hh failed."
+		        " Status = [0x%x]\n",
+		        (int)status) ;
+	}
+
+	status = NOTIFY_notify (processorId,
+	                        pool_IPS_ID,
+	                        pool_IPS_EVENTNO,
+	                        (Uint32) window_hw);
+	if (DSP_FAILED (status)) {
+		printf ("Notify window_hw failed."
+		        " Status = [0x%x]\n",
+		        (int)status) ;
+	}
+
 #ifdef DEBUG
 	printf ("Leaving pool_Create ()\n") ;
 #endif
@@ -329,7 +349,7 @@ void copy_data(void)
 {
 	int i, j, k;
 #ifdef DEBUG
-	printf("Copying data, window_hw: %d, window_hh: %d, ncols: %d\n", window_hw, window_hh, ncols);
+	printf("Copying data, window_hh: %d, window_hw: %d, ncols: %d\n", (int)window_hh, (int)window_hw, ncols);
 #endif
 	// copy data from gradx_data, grady_data to pool_DataBuf
 	// converting floating into fixed-point
@@ -347,6 +367,9 @@ void copy_data(void)
 			pool_DataBuf[k++] = grady_data[ncols * i + j] * (1 << SHIFT);
 		}
 	}
+
+	// TESTING
+	printf("pool_DataBuf: %d, %d\n", (int)pool_DataBuf[window_hh *  2 * window_hw * 2], (int)pool_DataBuf[window_hh *  2 * window_hw * 2 + 1]);
 
 #ifdef DEBUG
 	printf("End copying data, k: %d\n", k);
@@ -421,7 +444,6 @@ pool_Execute (IN float *gradxPart, IN float *gradyPart, IN Uint16 nCols,
 
 	start = get_usec();
 
-#if defined(DSP)
 	POOL_writeback (POOL_makePoolId(processorId, SAMPLE_POOL_ID),
 	                pool_DataBuf,
 	                pool_BufferSize);
@@ -442,13 +464,7 @@ pool_Execute (IN float *gradxPart, IN float *gradyPart, IN Uint16 nCols,
 	                     AddrType_Usr) ;
 
 
-	// Send window_hh, window_hw to DSP
-	NOTIFY_notify (processorId, pool_IPS_ID, pool_IPS_EVENTNO, window_hh);
-	NOTIFY_notify (processorId, pool_IPS_ID, pool_IPS_EVENTNO, window_hw);
-
-	// notify that DSP can start
-	// NOTIFY_notify (processorId, pool_IPS_ID, pool_IPS_EVENTNO, 1);
-	// printf("sent notify '1'\n");
+	NOTIFY_notify (processorId, pool_IPS_ID, pool_IPS_EVENTNO, (Uint32)1);
 
 	// wait for results
 	sem_wait(&sem);
@@ -457,11 +473,10 @@ pool_Execute (IN float *gradxPart, IN float *gradyPart, IN Uint16 nCols,
 	*gxyIn = gxy;
 	*gyyIn = gyy;
 
+#ifdef DEBUG
 	printf("got values: %f, %f, %f\n", *gxxIn, *gxyIn, *gyyIn);
-
-#endif
-
 	printf("Total execution time %lld us.\n", get_usec() - start);
+#endif
 
 	return status ;
 }
@@ -570,13 +585,13 @@ NORMAL_API
 Void
 pool_Main (IN Char8 *dspExecutable,
            IN Char8 *strBufferSize,
-           IN Uint16 windowHw,
-           IN Uint16 windowHh)
+           IN Uint32 windowHh,
+           IN Uint32 windowHw)
 {
 	DSP_STATUS status       = DSP_SOK ;
 	Uint8      processorId  = 0 ;
-	window_hw = windowHw;
 	window_hh = windowHh;
+	window_hw = windowHw;
 
 #ifdef DEBUG
 	printf ("========== Open pool ==========\n") ;

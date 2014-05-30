@@ -15,7 +15,7 @@
 /*  ----------------------------------- Application Header            */
 #include <pool_notify.h>
 
-extern Char8 *dspExecutable = NULL;
+Char8 *dspExecutable = NULL;
 /** ============================================================================
  *  @func   main
  *
@@ -37,10 +37,11 @@ int main (int argc, char **argv)
 	int ncols, nrows;
 	int i;
 	int window_hw, window_hh;
+	// int loop_count;
 	// TODO
 	int nFeatures = 512;
-	int nFrames = 10;
-	Char8 *strBufferSize = "512";
+	int nFrames = 1;
+	Char8 *strBufferSize = "2048";
 
 
 	if (argc == 2) {
@@ -61,13 +62,15 @@ int main (int argc, char **argv)
 	window_hw = tc->window_width / 2;
 	window_hh = tc->window_height / 2;
 
-	// Just open the pool
-	pool_Main(dspExecutable, strBufferSize, (Uint16)window_hw, (Uint16)window_hh);
-
-
 	startTimer(&appTimer);
 	img1 = pgmReadFile("img0.pgm", NULL, &ncols, &nrows);
 	img2 = (unsigned char *) malloc(ncols * nrows * sizeof(unsigned char));
+
+	// total cycles DSP needs to execute
+	// loop_count = (nrows - 2 * tc->bordery) * (ncols - 2 * tc->borderx) / (tc->nSkippedPixels + 1) / (tc->nSkippedPixels + 1);
+
+	// Just open the pool
+	pool_Main(dspExecutable, strBufferSize, (Uint32)window_hh, (Uint32)window_hw);
 
 	KLTSelectGoodFeatures(tc, img1, ncols, nrows, fl);
 	KLTStoreFeatureList(fl, ft, 0);

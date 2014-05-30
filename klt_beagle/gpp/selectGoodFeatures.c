@@ -312,9 +312,6 @@ int _ComputeTrackability(KLT_TrackingContext tc, int window_hw, int window_hh, i
 	int bordery = tc->bordery;      /* lost by convolution */
 	int x, y;
 	int i;
-	// pool-related variables
-	// int pool_size = 0;
-	// char pool_size_char[80];
 
 	if (borderx < window_hw)  borderx = window_hw;
 	if (bordery < window_hh)  bordery = window_hh;
@@ -334,8 +331,8 @@ int _ComputeTrackability(KLT_TrackingContext tc, int window_hw, int window_hh, i
 			// GPP
 			// first, copy gradx, grady data
 			// note: the width is window_hh, but the step is ncols
-			float *gradx_part = &gradx->data[y - window_hh];
-			float *grady_part = &grady->data[y - window_hh];
+			float *gradx_part = &gradx->data[ncols * (y - window_hh) + x - window_hw];
+			float *grady_part = &grady->data[ncols * (y - window_hh) + x - window_hw];
 			// passing as Uint32 type
 
 			pool_Execute(gradx_part, grady_part, ncols, &gxx, &gxy, &gyy);

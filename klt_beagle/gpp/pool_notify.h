@@ -135,8 +135,8 @@ NORMAL_API
 Void
 pool_Main (IN Char8 *dspExecutable,
            IN Char8 *strBufferSize,
-           IN Uint16 windowHw,
-           IN Uint16 windowHh) ;
+           IN Uint32 windowHh,
+           IN Uint32 windowHw) ;
 
 
 #endif /* !defined (pool_H) */
