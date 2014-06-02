@@ -348,16 +348,32 @@ pool_Create (IN Char8 *dspExecutable,
 void copy_data(void)
 {
 	int i, j, k;
+	int windowSize = window_hh *  2 * window_hw * 2;
+	int nextWindowOffset = windowSize * 2;
+	int tmpDataBuf[windowSize * 2];
+
 #ifdef DEBUG
 	printf("Copying data, window_hh: %d, window_hw: %d, ncols: %d\n", (int)window_hh, (int)window_hw, ncols);
 #endif
 	// copy data from gradx_data, grady_data to pool_DataBuf
 	// converting floating into fixed-point
 	k = 0;
+
+	// TODO: two steps are merged
+	// NEEDS TO BE REVIEWED
+	// for (i = 0; i < window_hh * 2; i++) {
+	// 	for (j = 0; j < window_hw * 2; j++) {
+	// 		pool_DataBuf[k] = gradx_data[ncols * i + j] * (1 << SHIFT);
+	// 		pool_DataBuf[k + windowSize] = grady_data[ncols * i + j] * (1 << SHIFT);
+	// 		k++;
+	// 	}
+	// }
+
 	// first do gradx_data
 	for (i = 0; i < window_hh * 2; i++) {
 		for (j = 0; j < window_hw * 2; j++) {
 			pool_DataBuf[k++] = gradx_data[ncols * i + j] * (1 << SHIFT);
+			// tmpDataBuf[k++] = gradx_data[ncols * i + j] * (1 << SHIFT);
 		}
 	}
 
@@ -365,8 +381,13 @@ void copy_data(void)
 	for (i = 0; i < window_hh * 2; i++) {
 		for (j = 0; j < window_hw * 2; j++) {
 			pool_DataBuf[k++] = grady_data[ncols * i + j] * (1 << SHIFT);
+			// tmpDataBuf[k++] = grady_data[ncols * i + j] * (1 << SHIFT);
 		}
 	}
+
+	// // wait for results
+	// sem_wait(&sem);
+	// memcpy(pool_DataBuf, tmpDataBuf, windowSize * 2);
 
 	// TESTING
 	printf("pool_DataBuf: %d, %d\n", (int)pool_DataBuf[window_hh *  2 * window_hw * 2], (int)pool_DataBuf[window_hh *  2 * window_hw * 2 + 1]);
