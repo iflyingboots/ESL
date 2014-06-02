@@ -396,9 +396,9 @@ void _KLTSelectGoodFeatures(
 				/* Sum the gradients in the surrounding window */
 				gxx = 0;  gxy = 0;  gyy = 0;
 
-#pragma unroll(4)
 				for (yy = y - window_hh ; yy <= y + window_hh ; yy++)
-					for (xx = x - window_hw ; xx <= x + window_hw ; xx++)  {
+#pragma unroll (4)
+					for (xx = x - window_hw ; xx <= ((x + window_hw) / 4 ) * 4 ; xx++)  {
 						gx = *(gradx->data + ncols * yy + xx);
 						gy = *(grady->data + ncols * yy + xx);
 						gxx += gx * gx;
