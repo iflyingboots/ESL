@@ -375,7 +375,7 @@ void _KLTSelectGoodFeatures(
 		register int xx, yy;
 		register int *ptr;
 		float val;
-		unsigned int limit = 1;
+		unsigned int limit = 4294967295;
 		int borderx = tc->borderx;  /* Must not touch cols */
 		int bordery = tc->bordery;  /* lost by convolution */
 		int x, y;
@@ -385,8 +385,8 @@ void _KLTSelectGoodFeatures(
 		if (bordery < window_hh)  bordery = window_hh;
 
 		/* Find largest value of an int */
-		for (i = 0 ; i < sizeof(int) ; i++)  limit *= 256;
-		limit = limit / 2 - 1;
+		// for (i = 0 ; i < sizeof(int) ; i++)  limit *= 256;
+		// limit = limit / 2 - 1;
 
 		/* For most of the pixels in the image, do ... */
 		ptr = pointlist;
@@ -394,17 +394,53 @@ void _KLTSelectGoodFeatures(
 			for (x = borderx ; x < ncols - borderx ; x += tc->nSkippedPixels + 1)  {
 
 				/* Sum the gradients in the surrounding window */
-				gxx = 0;  gxy = 0;  gyy = 0;
+				// 2 temp 32 vectors
+				float32x2_t vec64a, vec64b;
 
-				for (yy = y - window_hh ; yy <= y + window_hh ; yy++)
-#pragma unroll (4)
-					for (xx = x - window_hw ; xx <= ((x + window_hw) / 4 ) * 4 ; xx++)  {
-						gx = *(gradx->data + ncols * yy + xx);
-						gy = *(grady->data + ncols * yy + xx);
-						gxx += gx * gx;
-						gxy += gx * gy;
-						gyy += gy * gy;
+				// clear accumulators
+				float32x4_t gxx128 = vdupq_n_f32(0.0f);
+				float32x4_t gxy128 = vdupq_n_f32(0.0f);
+				float32x4_t gyy128 = vdupq_n_f32(0.0f);
+
+				for (yy = y - window_hh ; yy <= y + window_hh ; yy++) {
+					for (xx = x - window_hw ; xx <= ((x + window_hw + 1) / 4) * 4 ; xx += 4)  {
+						// load 4 x 32 bit values
+						float32x4_t gx128 = vld1q_f32(&gradx->data[ncols * yy + xx]);
+						float32x4_t gy128 = vld1q_f32(&grady->data[ncols * yy + xx]);
+
+						// Vector multiply accumulate: vmla -> Vr[i] := Va[i] + Vb[i] * Vc[i]
+						gxx128 = vmlaq_f32(gxx128, gx128, gx128);
+						gxy128 = vmlaq_f32(gxy128, gx128, gy128);
+						gyy128 = vmlaq_f32(gyy128, gy128, gy128);
 					}
+				}
+
+				// split 128 bit vector into 2 x 64 bit vector
+				vec64a = vget_low_f32(gxx128);
+				vec64b = vget_high_f32(gxx128);
+				// add 64 bit vectors together
+				vec64a = vadd_f32(vec64a, vec64b);
+				//  extract lanes and add together scalars
+				gxx  = vget_lane_f32(vec64a, 0);
+				gxx += vget_lane_f32(vec64a, 1);
+
+				// same for gxy
+				vec64a = vget_low_f32(gxy128);
+				vec64b = vget_high_f32(gxy128);
+				vec64a = vadd_f32(vec64a, vec64b);
+
+				gxy  = vget_lane_f32(vec64a, 0);
+				gxy += vget_lane_f32(vec64a, 1);
+
+				// same for gyy
+				vec64a = vget_low_f32(gyy128);
+				vec64b = vget_high_f32(gyy128);
+				vec64a = vadd_f32(vec64a, vec64b);
+
+				gyy  = vget_lane_f32(vec64a, 0);
+				gyy += vget_lane_f32(vec64a, 1);
+
+                // printf("\ngxx: %f, gxy, %f, gyy: %f\n", gxx, gxy, gyy);
 
 				/* Store the trackability of the pixel as the minimum
 				   of the two eigenvalues */
