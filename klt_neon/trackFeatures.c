@@ -40,7 +40,6 @@ inline static float _interpolate(
 	float ay = y - yt;
 	float *ptr = img->data + (img->ncols * yt) + xt;
     float axay = ax * ay;
-    float result;
 
 // #ifndef _DNDEBUG
 //  if (xt < 0 || yt < 0 || xt >= img->ncols - 1 || yt >= img->nrows - 1) {
@@ -75,12 +74,7 @@ inline static float _interpolate(
     // add the two parts
     part1_64 = vadd_f32(part1_64, part2_64);
 
-    // extract lanes and put into result
-    result  = vget_lane_f32(part1_64, 0);
-    result += vget_lane_f32(part1_64, 1);
-
-    return result;
-
+    return vget_lane_f32(part1_64, 0) + vget_lane_f32(part1_64, 1);
 
     // Expand the orignal expression with pre-calculated ax*ay
     // return ( (1 - ay - ax  + axay) * *ptr +

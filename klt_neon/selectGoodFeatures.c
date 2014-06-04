@@ -248,12 +248,18 @@ static void _enforceMinimumDistance(
 #ifdef KLT_USE_QSORT
 static int _comparePoints(const void *a, const void *b)
 {
-	int v1 = *(((int *) a) + 2);
-	int v2 = *(((int *) b) + 2);
+	// int v1 = *(((int *) a) + 2);
+	// int v2 = *(((int *) b) + 2);
 
-	if (v1 > v2)  return (-1);
-	else if (v1 < v2)  return (1);
-	else return (0);
+	int diff = (int)*(((int *) a) + 2) - (int)*(((int *) b) + 2);
+
+	if (diff > 0) return (-1);
+	if (diff < 0) return (1);
+	return (0);
+
+	// if (v1 > v2)  return (-1);
+	// else if (v1 < v2)  return (1);
+	// else return (0);
 }
 #endif
 
@@ -375,7 +381,7 @@ void _KLTSelectGoodFeatures(
 		register int xx, yy;
 		register int *ptr;
 		float val;
-		unsigned int limit = 4294967295;
+		unsigned int limit;
 		int borderx = tc->borderx;  /* Must not touch cols */
 		int bordery = tc->bordery;  /* lost by convolution */
 		int x, y;
@@ -385,8 +391,8 @@ void _KLTSelectGoodFeatures(
 		if (bordery < window_hh)  bordery = window_hh;
 
 		/* Find largest value of an int */
-		// for (i = 0 ; i < sizeof(int) ; i++)  limit *= 256;
-		// limit = limit / 2 - 1;
+		for (i = 0 ; i < sizeof(int) ; i++)  limit *= 256;
+		limit = limit / 2 - 1;
 
 		/* For most of the pixels in the image, do ... */
 		ptr = pointlist;
