@@ -22,7 +22,7 @@ LIBS = -L.
 # Add your favorite C flags here.
 
 CFLAGS = $(FLAG1) $(FLAG2)
-CFLAGS += -O3 -Wall -march=armv7-a -mtune=cortex-a8 -mfpu=neon -mfloat-abi=softfp -ffast-math -fomit-frame-pointer -ftree-vectorize -ftree-vectorizer-verbose=2 -mvectorize-with-neon-quad -ffast-math -fsingle-precision-constant
+CFLAGS += -O3 -Wall -march=armv7-a -mtune=cortex-a8 -mfpu=neon -mfloat-abi=softfp -ffast-math -fomit-frame-pointer -ftree-vectorize -ftree-vectorizer-verbose=2 -mvectorize-with-neon-quad -fsingle-precision-constant -fno-math-errno -ffinite-math-only -fno-signed-zeros -funroll-loops
 LDFLAGS=-lm
 
 ######################################################################
