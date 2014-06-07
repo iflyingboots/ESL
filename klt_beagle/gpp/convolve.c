@@ -72,9 +72,9 @@ static void _computeKernels(
   {
     const int hw = MAX_KERNEL_WIDTH / 2;
     float max_gauss = 1.0f, max_gaussderiv = (float) (sigma*exp(-0.5f));
-	
+
     /* Compute gauss and deriv */
-    for (i = -hw ; i <= hw ; i++)  
+    for (i = -hw ; i <= hw ; i++)
 	{
       gauss->data[i+hw]      = (float) exp(-i*i / (2*sigma*sigma));
       gaussderiv->data[i+hw] = -i * gauss->data[i+hw];
@@ -84,7 +84,7 @@ static void _computeKernels(
     gauss->width = MAX_KERNEL_WIDTH;
     for (i = -hw ; fabs(gauss->data[i+hw] / max_gauss) < factor ; i++, gauss->width -= 2);
 		gaussderiv->width = MAX_KERNEL_WIDTH;
-	
+
     for (i = -hw ; fabs(gaussderiv->data[i+hw] / max_gaussderiv)<factor; i++, gaussderiv->width -= 2);
 		if (gauss->width == MAX_KERNEL_WIDTH || gaussderiv->width == MAX_KERNEL_WIDTH)
 			KLTError("(_computeKernels) MAX_KERNEL_WIDTH %d is too small for a sigma of %f", MAX_KERNEL_WIDTH, sigma);
@@ -99,7 +99,7 @@ static void _computeKernels(
   {
     const int hw = gaussderiv->width / 2;
     float den;
-			
+
     den = 0.0;
     for (i = 0 ; i < gauss->width ; i++)  den += gauss->data[i];
     for (i = 0 ; i < gauss->width ; i++)  gauss->data[i] /= den;
@@ -110,7 +110,7 @@ static void _computeKernels(
 
   sigma_last = sigma;
 }
-	
+
 
 /*********************************************************************
  * _KLTGetKernelWidths
@@ -253,7 +253,7 @@ static void _convolveSeparate(
   /* Create temporary image */
   _KLT_FloatImage tmpimg;
   tmpimg = _KLTCreateFloatImage(imgin->ncols, imgin->nrows);
-  
+
   /* Do convolution */
   _convolveImageHoriz(imgin, horiz_kernel, tmpimg);
 
@@ -263,7 +263,7 @@ static void _convolveSeparate(
   _KLTFreeFloatImage(tmpimg);
 }
 
-	
+
 /*********************************************************************
  * _KLTComputeGradients
  */
@@ -274,7 +274,7 @@ void _KLTComputeGradients(
   _KLT_FloatImage gradx,
   _KLT_FloatImage grady)
 {
-				
+
   /* Output images must be large enough to hold result */
   assert(gradx->ncols >= img->ncols);
   assert(gradx->nrows >= img->nrows);
@@ -284,12 +284,12 @@ void _KLTComputeGradients(
   /* Compute kernels, if necessary */
   if (fabs(sigma - sigma_last) > 0.05)
     _computeKernels(sigma, &gauss_kernel, &gaussderiv_kernel);
-	
+
   _convolveSeparate(img, gaussderiv_kernel, gauss_kernel, gradx);
   _convolveSeparate(img, gauss_kernel, gaussderiv_kernel, grady);
 
 }
-	
+
 
 /*********************************************************************
  * _KLTComputeSmoothedImage

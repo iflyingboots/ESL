@@ -46,7 +46,8 @@ NORMAL_API
 DSP_STATUS
 pool_Create (IN Char8 *dspExecutable,
                     IN Char8 *strBufferSize,
-                    IN Uint8   processorId) ;
+                    IN Uint8   processorId,
+                    IN KLT_TrackingContext tc) ;
 
 
 /** ============================================================================
@@ -73,8 +74,7 @@ pool_Create (IN Char8 *dspExecutable,
  */
 NORMAL_API
 DSP_STATUS
-pool_Execute (IN float *gradxPart, IN float *gradyPart, IN Uint16 nCols,
-              IN float *gxxIn, IN float *gxyIn, IN float *gyyIn) ;
+pool_Execute (IN KLT_TrackingContext tc, IN float *gradxData, IN float *gradyData, int nrows, int ncols, int rows_dsp) ;
 
 
 /** ============================================================================
@@ -135,8 +135,15 @@ NORMAL_API
 Void
 pool_Main (IN Char8 *dspExecutable,
            IN Char8 *strBufferSize,
-           IN Uint32 windowHh,
-           IN Uint32 windowHw) ;
+           IN KLT_TrackingContext tc) ;
+           
+int _ComputeTrackability(KLT_TrackingContext tc,  
+						 int *pointlist, 
+						 int nrows, 
+						 int ncols, 
+						 _KLT_FloatImage gradx, 
+						 _KLT_FloatImage grady,
+						 int rows_dsp);
 
 
 #endif /* !defined (pool_H) */

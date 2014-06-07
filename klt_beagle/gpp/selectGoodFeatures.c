@@ -31,6 +31,8 @@ typedef enum {SELECTING_ALL, REPLACING_SOME} selectionMode;
 
 
 
+
+
 /*********************************************************************
  * _quicksort
  * Replacement for qsort().  Computing time is decreased by taking
@@ -253,12 +255,18 @@ static void _enforceMinimumDistance(
 #ifdef KLT_USE_QSORT
 static int _comparePoints(const void *a, const void *b)
 {
-	int v1 = *(((int *) a) + 2);
-	int v2 = *(((int *) b) + 2);
+	// int v1 = *(((int *) a) + 2);
+	// int v2 = *(((int *) b) + 2);
 
-	if (v1 > v2)  return (-1);
-	else if (v1 < v2)  return (1);
-	else return (0);
+	int diff = (int)*(((int *) a) + 2) - (int)*(((int *) b) + 2);
+
+	if (diff > 0) return (-1);
+	if (diff < 0) return (1);
+	return (0);
+
+	// if (v1 > v2)  return (-1);
+	// else if (v1 < v2)  return (1);
+	// else return (0);
 }
 #endif
 
@@ -279,81 +287,7 @@ static void _sortPointList(
 }
 
 
-/*********************************************************************
- * _minEigenvalue
- *
- * Given the three distinct elements of the symmetric 2x2 matrix
- *                     [gxx gxy]
- *                     [gxy gyy],
- * Returns the minimum eigenvalue of the matrix.
- */
 
-static float _minEigenvalue(float gxx, float gxy, float gyy)
-{
-	return (float) ((gxx + gyy - sqrt((gxx - gyy) * (gxx - gyy) + 4 * gxy * gxy)) / 2.0f);
-}
-
-/**
- * This function involves DSPLINK computation
- */
-int _ComputeTrackability(KLT_TrackingContext tc, int window_hw, int window_hh, int *pointlist, int nrows, int ncols, _KLT_FloatImage gradx, _KLT_FloatImage grady)
-{
-	/* Compute trackability of each image pixel as the minimum
-	 of the two eigenvalues of the Z matrix */
-	// register float gx, gy;
-	// register float gxx, gxy, gyy;
-	float gxx, gxy, gyy;
-	// register int xx, yy;
-	register int *ptr;
-	float val;
-	int npoints = 0;
-	unsigned int limit = 1;
-	int borderx = tc->borderx;      /* Must not touch cols */
-	int bordery = tc->bordery;      /* lost by convolution */
-	int x, y;
-	int i;
-
-	if (borderx < window_hw)  borderx = window_hw;
-	if (bordery < window_hh)  bordery = window_hh;
-
-	/* Find largest value of an int */
-	for (i = 0 ; i < sizeof(int) ; i++)  limit *= 256;
-	limit = limit / 2 - 1;
-
-	/* For most of the pixels in the image, do ... */
-	ptr = pointlist;
-
-	for (y = bordery ; y < nrows - bordery ; y += tc->nSkippedPixels + 1)
-		for (x = borderx ; x < ncols - borderx ; x += tc->nSkippedPixels + 1)  {
-
-			// move this fragment (2 loops) to DSP side
-
-			// GPP
-			// first, copy gradx, grady data
-			// note: the width is window_hh, but the step is ncols
-			float *gradx_part = &gradx->data[ncols * (y - window_hh) + x - window_hw];
-			float *grady_part = &grady->data[ncols * (y - window_hh) + x - window_hw];
-			// passing as Uint32 type
-
-			pool_Execute(gradx_part, grady_part, ncols, &gxx, &gxy, &gyy);
-
-			/* Store the trackability of the pixel as the minimum
-			   of the two eigenvalues */
-			*ptr++ = x;
-			*ptr++ = y;
-			val = _minEigenvalue(gxx, gxy, gyy);
-			if (val > limit)  {
-				KLTWarning("(_KLTSelectGoodFeatures) minimum eigenvalue %f is "
-				           "greater than the capacity of an int; setting "
-				           "to maximum value", val);
-				val = (float) limit;
-			}
-			*ptr++ = (int) val;
-			npoints++;
-		}
-
-	return npoints;
-}
 
 /*********************************************************************/
 
@@ -363,7 +297,8 @@ void _KLTSelectGoodFeatures(
         int ncols,
         int nrows,
         KLT_FeatureList featurelist,
-        selectionMode mode)
+        selectionMode mode,
+        int rows_dsp)
 {
 	_KLT_FloatImage floatimg, gradx, grady;
 	int window_hw, window_hh;
@@ -433,9 +368,8 @@ void _KLTSelectGoodFeatures(
 		_KLTWriteFloatImageToPGM(grady, "kltimg_sgfrlf_gy.pgm");
 	}
 
-	npoints = _ComputeTrackability(tc, window_hw, window_hh, pointlist,
-	                               nrows, ncols, gradx, grady);
-
+	npoints = _ComputeTrackability(tc, pointlist, nrows, ncols,
+								   gradx, grady, rows_dsp);
 
 	/* Sort the features  */
 	_sortPointList(pointlist, npoints);
@@ -488,7 +422,8 @@ void KLTSelectGoodFeatures(
         KLT_PixelType *img,
         int ncols,
         int nrows,
-        KLT_FeatureList fl)
+        KLT_FeatureList fl,
+        int rows_dsp)
 {
 	if (KLT_verbose >= 1)  {
 		fprintf(stderr,  "(KLT) Selecting the %d best features "
@@ -497,7 +432,7 @@ void KLTSelectGoodFeatures(
 	}
 
 	_KLTSelectGoodFeatures(tc, img, ncols, nrows,
-	                       fl, SELECTING_ALL);
+	                       fl, SELECTING_ALL, rows_dsp);
 
 	if (KLT_verbose >= 1)  {
 		fprintf(stderr,  "\n\t%d features found.\n",
@@ -530,7 +465,8 @@ void KLTReplaceLostFeatures(
         KLT_PixelType *img,
         int ncols,
         int nrows,
-        KLT_FeatureList fl)
+        KLT_FeatureList fl,
+        int rows_dsp)
 {
 	int nLostFeatures = fl->nFeatures - KLTCountRemainingFeatures(fl);
 
@@ -543,7 +479,7 @@ void KLTReplaceLostFeatures(
 	/* If there are any lost features, replace them */
 	if (nLostFeatures > 0)
 		_KLTSelectGoodFeatures(tc, img, ncols, nrows,
-		                       fl, REPLACING_SOME);
+		                       fl, REPLACING_SOME, rows_dsp);
 
 	if (KLT_verbose >= 1)  {
 		fprintf(stderr,  "\n\t%d features replaced.\n",

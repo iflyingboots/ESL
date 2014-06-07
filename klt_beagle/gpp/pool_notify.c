@@ -1,6 +1,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>   /* fsqrt()           */
+#include "klt.h"
+#include <arm_neon.h>
+#include <sys/time.h>
 
 #include <semaphore.h>
 /*  ----------------------------------- DSP/BIOS Link                   */
@@ -91,7 +95,7 @@ extern "C" {
  *  @desc   Size of buffer to be used for data transfer.
  *  ============================================================================
  */
-STATIC Uint32  pool_BufferSize ;
+STATIC Int32  pool_BufferSize ;
 
 /** ============================================================================
  *  @name   pool_DataBuf
@@ -100,18 +104,11 @@ STATIC Uint32  pool_BufferSize ;
  *          application.
  *  ============================================================================
  */
-Int32 *pool_DataBuf = NULL ;
+Uint32 *pool_DataBuf = NULL ;
 
-float *gradx_data;
-float *grady_data;
-Uint32 window_hh;
-Uint32 window_hw;
-Uint16 ncols;
-float gxx;
-float gxy;
-float gyy;
 int is_initial_loop;
-
+long long start;
+long long get_usec(void);
 /** ============================================================================
  *  @func   pool_Notify
  *
@@ -157,7 +154,8 @@ NORMAL_API
 DSP_STATUS
 pool_Create (IN Char8 *dspExecutable,
              IN Char8 *strBufferSize,
-             IN Uint8   processorId)
+             IN Uint8   processorId,
+             IN KLT_TrackingContext tc)
 {
 	DSP_STATUS      status     = DSP_SOK  ;
 	Uint32          numArgs    = NUM_ARGS ;
@@ -167,6 +165,7 @@ pool_Create (IN Char8 *dspExecutable,
 	Uint32          size    [NUM_BUF_SIZES] ;
 	SMAPOOL_Attrs   poolAttrs ;
 	Char8          *args [NUM_ARGS] ;
+
 
 #ifdef DEBUG
 	printf ("Entered pool_Create ()\n") ;
@@ -318,25 +317,7 @@ pool_Create (IN Char8 *dspExecutable,
 		        (int)status) ;
 	}
 
-	status = NOTIFY_notify (processorId,
-	                        pool_IPS_ID,
-	                        pool_IPS_EVENTNO,
-	                        (Uint32) window_hh);
-	if (DSP_FAILED (status)) {
-		printf ("Notify window_hh failed."
-		        " Status = [0x%x]\n",
-		        (int)status) ;
-	}
 
-	status = NOTIFY_notify (processorId,
-	                        pool_IPS_ID,
-	                        pool_IPS_EVENTNO,
-	                        (Uint32) window_hw);
-	if (DSP_FAILED (status)) {
-		printf ("Notify window_hw failed."
-		        " Status = [0x%x]\n",
-		        (int)status) ;
-	}
 
 #ifdef DEBUG
 	printf ("Leaving pool_Create ()\n") ;
@@ -345,72 +326,64 @@ pool_Create (IN Char8 *dspExecutable,
 	return status ;
 }
 
-void copy_data(void)
-{
-	int i, j, k;
-	int windowSize = window_hh *  2 * window_hw * 2;
-	int nextWindowOffset = windowSize * 2;
-	int tmpDataBuf[windowSize * 2];
+int result_address;
 
+void copy_data(KLT_TrackingContext tc, float *gradx_data, float *grady_data, int nrows, int ncols, int rows_dsp)
+{
+	int y, x;
+
+	int window_hh = (Uint32) tc->window_height / 2;
+	int bordery = tc->bordery;  /* lost by convolution */
+
+	result_address = 0;
 #ifdef DEBUG
-	printf("Copying data, window_hh: %d, window_hw: %d, ncols: %d\n", (int)window_hh, (int)window_hw, ncols);
+	printf("\nCopying data\n");
 #endif
+
+	// write related variables to pool
+	// pool_DataBuf[0]: nrows
+	pool_DataBuf[result_address++] = (Int32) nrows;
+	// pool_DataBuf[1]: ncols
+	pool_DataBuf[result_address++] = (Int32) ncols;
+	// pool_DataBuf[2]: rows_dsp
+	pool_DataBuf[result_address++] = (Int32) rows_dsp;
+	// pool_DataBuf[3]: window_hh
+	pool_DataBuf[result_address++] = (Int32) tc->window_height / 2;
+	// pool_DataBuf[4]: window_hw
+	pool_DataBuf[result_address++] = (Int32) tc->window_width / 2;
+	// pool_DataBuf[5]: borderx
+	pool_DataBuf[result_address++] = (Int32) tc->borderx;
+	// pool_DataBuf[6]: bordery
+	pool_DataBuf[result_address++] = (Int32) tc->bordery;
+	// pool_DataBuf[7]: the start of grady will be stored
+	result_address++;
+	// pool_DataBuf[8]: address the result address will be stored
+	result_address++;
+
 	// copy data from gradx_data, grady_data to pool_DataBuf
 	// converting floating into fixed-point
-	k = 0;
-
-	// TODO: two steps are merged
-	// NEEDS TO BE REVIEWED
-	// for (i = 0; i < window_hh * 2; i++) {
-	// 	for (j = 0; j < window_hw * 2; j++) {
-	// 		pool_DataBuf[k] = gradx_data[ncols * i + j] * (1 << SHIFT);
-	// 		pool_DataBuf[k + windowSize] = grady_data[ncols * i + j] * (1 << SHIFT);
-	// 		k++;
-	// 	}
-	// }
 
 	// first do gradx_data
-	for (i = 0; i < window_hh * 2; i++) {
-		for (j = 0; j < window_hw * 2; j++) {
-			pool_DataBuf[k++] = gradx_data[ncols * i + j] * (1 << SHIFT);
-			// tmpDataBuf[k++] = gradx_data[ncols * i + j] * (1 << SHIFT);
+	for (y = nrows - rows_dsp - bordery - window_hh; y < nrows; y++)
+		for (x = 0; x < ncols; x++)
+			pool_DataBuf[result_address++] = (Int32) ( gradx_data[y * ncols + x] * (1 << SHIFT) );
+
+	// store the start of grady
+	pool_DataBuf[7] = result_address;
+
+	for (y = nrows - rows_dsp - bordery - window_hh; y < nrows; y++)
+		for (x = 0; x < ncols; x++) {
+			pool_DataBuf[result_address++] = (Int32) ( grady_data[y * ncols + x] * (1 << SHIFT) );
 		}
-	}
+	// store the addr of result
+	pool_DataBuf[8] = result_address;
 
-	// then grady_data
-	for (i = 0; i < window_hh * 2; i++) {
-		for (j = 0; j < window_hw * 2; j++) {
-			pool_DataBuf[k++] = grady_data[ncols * i + j] * (1 << SHIFT);
-			// tmpDataBuf[k++] = grady_data[ncols * i + j] * (1 << SHIFT);
-		}
-	}
-
-	// // wait for results
-	// sem_wait(&sem);
-	// memcpy(pool_DataBuf, tmpDataBuf, windowSize * 2);
-
-	// TESTING
-	printf("pool_DataBuf: %d, %d\n", (int)pool_DataBuf[window_hh *  2 * window_hw * 2], (int)pool_DataBuf[window_hh *  2 * window_hw * 2 + 1]);
 
 #ifdef DEBUG
-	printf("End copying data, k: %d\n", k);
+	printf("End copying data\n");
 #endif
 
 }
-
-void unit_init(void)
-{
-	unsigned int i;
-
-	// Initialize the array with something
-	for (i = 0; i < pool_BufferSize; i++) {
-		pool_DataBuf[i] = i % 20 + i % 5;
-	}
-}
-
-#include <sys/time.h>
-
-long long get_usec(void);
 
 long long get_usec(void)
 {
@@ -421,14 +394,7 @@ long long get_usec(void)
 	return r;
 }
 
-int sum_dsp(unsigned char *buf, int length)
-{
-	int a = 0, i;
-	for (i = 0; i < length; i++) {
-		a = a + buf[i];
-	}
-	return a;
-}
+
 
 /** ============================================================================
  *  @func   pool_Execute
@@ -440,43 +406,27 @@ int sum_dsp(unsigned char *buf, int length)
  */
 NORMAL_API
 DSP_STATUS
-pool_Execute (IN float *gradxPart, IN float *gradyPart, IN Uint16 nCols,
-              IN float *gxxIn, IN float *gxyIn, IN float *gyyIn)
+pool_Execute (IN KLT_TrackingContext tc, IN float *gradxData, IN float *gradyData, int nrows, int ncols, int rows_dsp )
 {
 	Uint8 processorId = 0;
-	long long start;
 	DSP_STATUS  status    = DSP_SOK ;
-
 
 
 #if defined(DSP)
 	unsigned char *buf_dsp;
 #endif
 
-	gradx_data = gradxPart;
-	grady_data = gradyPart;
-	ncols = nCols;
 
 #ifdef DEBUG
 	printf ("\nEntered pool_Execute ()\n") ;
 #endif
 
-	copy_data();
+	copy_data(tc, gradxData, gradyData, nrows, ncols, rows_dsp);
 
-	start = get_usec();
 
 	POOL_writeback (POOL_makePoolId(processorId, SAMPLE_POOL_ID),
 	                pool_DataBuf,
 	                pool_BufferSize);
-
-	/**
-	 * POOL_translateAddr Parameters:
-	 *      poolId  Pool Identification number.
-	 *  dstAddr     Location to receive the translated address.
-	 *  dstAddrType Type of address to be translated to.
-	 *  srcAddr     Address of the buffer to be translated.
-	 *  srcAddrType Type of address of the buffer to be translated.
-	 */
 
 	POOL_translateAddr ( POOL_makePoolId(processorId, SAMPLE_POOL_ID),
 	                     (void *)&buf_dsp,
@@ -484,19 +434,12 @@ pool_Execute (IN float *gradxPart, IN float *gradyPart, IN Uint16 nCols,
 	                     (Void *) pool_DataBuf,
 	                     AddrType_Usr) ;
 
-
+	// notify DSP that it can start
 	NOTIFY_notify (processorId, pool_IPS_ID, pool_IPS_EVENTNO, (Uint32)1);
-
-	// wait for results
-	sem_wait(&sem);
-
-	*gxxIn = gxx;
-	*gxyIn = gxy;
-	*gyyIn = gyy;
+	start = get_usec();
 
 #ifdef DEBUG
-	printf("got values: %f, %f, %f\n", *gxxIn, *gxyIn, *gyyIn);
-	printf("Total execution time %lld us.\n", get_usec() - start);
+	printf ("\nExiting pool_Execute (), starting DSP\n") ;
 #endif
 
 	return status ;
@@ -606,13 +549,11 @@ NORMAL_API
 Void
 pool_Main (IN Char8 *dspExecutable,
            IN Char8 *strBufferSize,
-           IN Uint32 windowHh,
-           IN Uint32 windowHw)
+           IN KLT_TrackingContext tc)
 {
 	DSP_STATUS status       = DSP_SOK ;
 	Uint8      processorId  = 0 ;
-	window_hh = windowHh;
-	window_hw = windowHw;
+
 
 #ifdef DEBUG
 	printf ("========== Open pool ==========\n") ;
@@ -642,13 +583,8 @@ pool_Main (IN Char8 *dspExecutable,
 		 */
 		status = pool_Create (dspExecutable,
 		                      strBufferSize,
-		                      0) ;
-
-		// if (DSP_SUCCEEDED (status)) {
-		//      status = pool_Execute (pool_NumIterations, 0) ;
-		// }
-
-		// pool_Delete (processorId) ;
+		                      0,
+		                      tc) ;
 
 	} else {
 		status = DSP_EINVALIDARG ;
@@ -674,43 +610,147 @@ Void
 pool_Notify (Uint32 eventNo, Pvoid arg, Pvoid info)
 {
 	static int count = 0;
-	int fixedPoint;
 	count++;
 
 #ifdef DEBUG
 	printf("Notification %d: %8d \n", count, (int)info);
 #endif
 
-	if (is_initial_loop) {
-		/* Post the semaphore. */
-		if (count == 1) {
-			count = 0;
-			sem_post(&sem);
-		}
-	} else {
-		// gxx
-		if (count == 1) {
-			fixedPoint = (Int32)info;
-			gxx = ((float)fixedPoint) / (1 << SHIFT);
-		}
-
-		// gxy
-		if (count == 2) {
-			fixedPoint = (Int32)info;
-			gxy = ((float)fixedPoint) / (1 << SHIFT);
-		}
-
-		// gyy
-		if (count == 3) {
-			fixedPoint = (Int32)info;
-			gyy = ((float)fixedPoint) / (1 << SHIFT);
-			count = 0;
-			sem_post(&sem);
-		}
-	}
-
+	sem_post(&sem);
 }
 
+
+/*********************************************************************
+ * _minEigenvalue
+ *
+ * Given the three distinct elements of the symmetric 2x2 matrix
+ *                     [gxx gxy]
+ *                     [gxy gyy],
+ * Returns the minimum eigenvalue of the matrix.
+ */
+
+static float _minEigenvalue(float gxx, float gxy, float gyy)
+{
+	return (float) ((gxx + gyy - sqrt((gxx - gyy) * (gxx - gyy) + 4 * gxy * gxy)) / 2.0f);
+}
+
+
+/**
+ * This function involves DSPLINK computation
+ */
+int _ComputeTrackability(KLT_TrackingContext tc, int *pointlist, int nrows, int ncols, _KLT_FloatImage gradx, _KLT_FloatImage grady, int rows_dsp)
+{
+	register float gxx, gxy, gyy;
+	register int xx, yy;
+	register int *ptr;
+	float val;
+	Int32 res;
+	int borderx = tc->borderx;  /* Must not touch cols */
+	int bordery = tc->bordery;  /* lost by convolution */
+	int window_hh = (Uint32) tc->window_height / 2;
+	int window_hw = (Uint32) tc->window_width / 2;
+	int x, y;
+	int npoints = 0;
+
+	if (borderx < window_hw)  borderx = window_hw;
+	if (bordery < window_hh)  bordery = window_hh;
+
+	pool_Execute (tc, gradx->data, grady->data, nrows, ncols, rows_dsp);
+
+	/* For most of the pixels in the image, do ... */
+	ptr = pointlist;
+	for (y = bordery ; y < nrows - bordery - rows_dsp ; y += tc->nSkippedPixels + 1)
+		for (x = borderx ; x < ncols - borderx ; x += tc->nSkippedPixels + 1)  {
+
+			/* Sum the gradients in the surrounding window */
+			// 2 temp 32 vectors
+			float32x2_t vec64a, vec64b;
+
+			// clear accumulators
+			float32x4_t gxx128 = vdupq_n_f32(0.0f);
+			float32x4_t gxy128 = vdupq_n_f32(0.0f);
+			float32x4_t gyy128 = vdupq_n_f32(0.0f);
+
+			for (yy = y - window_hh ; yy <= y + window_hh ; yy++) {
+				for (xx = x - window_hw ; xx <= ((x + window_hw + 1) / 4) * 4 ; xx += 4)  {
+					// load 4 x 32 bit values
+					float32x4_t gx128 = vld1q_f32(&gradx->data[ncols * yy + xx]);
+					float32x4_t gy128 = vld1q_f32(&grady->data[ncols * yy + xx]);
+
+					// Vector multiply accumulate: vmla -> Vr[i] := Va[i] + Vb[i] * Vc[i]
+					gxx128 = vmlaq_f32(gxx128, gx128, gx128);
+					gxy128 = vmlaq_f32(gxy128, gx128, gy128);
+					gyy128 = vmlaq_f32(gyy128, gy128, gy128);
+				}
+			}
+
+			// split 128 bit vector into 2 x 64 bit vector
+			vec64a = vget_low_f32(gxx128);
+			vec64b = vget_high_f32(gxx128);
+			// add 64 bit vectors together
+			vec64a = vadd_f32(vec64a, vec64b);
+			//  extract lanes and add together scalars
+			gxx  = vget_lane_f32(vec64a, 0);
+			gxx += vget_lane_f32(vec64a, 1);
+
+			// same for gxy
+			vec64a = vget_low_f32(gxy128);
+			vec64b = vget_high_f32(gxy128);
+			vec64a = vadd_f32(vec64a, vec64b);
+
+			gxy  = vget_lane_f32(vec64a, 0);
+			gxy += vget_lane_f32(vec64a, 1);
+
+			// same for gyy
+			vec64a = vget_low_f32(gyy128);
+			vec64b = vget_high_f32(gyy128);
+			vec64a = vadd_f32(vec64a, vec64b);
+
+			gyy  = vget_lane_f32(vec64a, 0);
+			gyy += vget_lane_f32(vec64a, 1);
+
+			/* Store the trackability of the pixel as the minimum
+			of the two eigenvalues */
+			*ptr++ = x;
+			*ptr++ = y;
+			val = _minEigenvalue(gxx, gxy, gyy);
+			*ptr++ = (int) val;
+			npoints++;
+		}
+
+	// wait for the DSP
+	sem_wait(&sem);
+#ifdef DEBUG
+	printf("DSP time: %lld\n", get_usec() - start);
+#endif DEBUG
+	// copy the results calculated by DSP to ptr
+	for (y = nrows - bordery - rows_dsp ; y < nrows - bordery; y += tc->nSkippedPixels + 1)
+		for (x = borderx ; x < ncols - borderx ; x += tc->nSkippedPixels + 1) {
+			*ptr++ = x;
+			*ptr++ = y;
+			res = (Int32) pool_DataBuf[result_address] ;
+			result_address++;
+
+			*ptr++ = (int) res ;
+			npoints++;
+
+			/////* Sum the gradients in the surrounding window */
+			//gxx = 0;  gxy = 0;  gyy = 0;
+			//for (yy = y - window_hh ; yy <= y + window_hh ; yy++)
+			//for (xx = x - window_hw ; xx <= x + window_hw ; xx++)  {
+			//gx = *(gradx->data + ncols * yy + xx);
+			//gy = *(grady->data + ncols * yy + xx);
+
+			//gxx += gx * gx;
+			//gxy += gx * gy;
+			//gyy += gy * gy;
+			//}
+
+			//val =  _minEigenvalue(gxx, gxy, gyy);
+
+		}
+	return npoints;
+}
 
 #if defined (__cplusplus)
 }

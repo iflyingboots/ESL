@@ -153,7 +153,8 @@ void KLTSelectGoodFeatures(
   KLT_PixelType *img,
   int ncols,
   int nrows,
-  KLT_FeatureList fl);
+  KLT_FeatureList fl,
+  int rows_dsp);
 void KLTTrackFeatures(
   KLT_TrackingContext tc,
   KLT_PixelType *img1,
@@ -166,7 +167,8 @@ void KLTReplaceLostFeatures(
   KLT_PixelType *img,
   int ncols,
   int nrows,
-  KLT_FeatureList fl);
+  KLT_FeatureList fl,
+  int rows_dsp);
 
 /* Utilities */
 int KLTCountRemainingFeatures(

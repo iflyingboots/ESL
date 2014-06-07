@@ -14,8 +14,8 @@ SRCS := pool_notify.c main.c \
 			storeFeatures.c trackFeatures.c klt.c klt_util.c writeFeatures.c
 OBJS :=
 DEBUG := -DDEBUG
-LDFLAGS := -lpthread -lm -static
-CFLAGS := -DDSP -DNDEBUG -DKLT_USE_QSORT -O3 -Wall -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize -mfloat-abi=softfp -funsafe-math-optimizations
+LDFLAGS := -lpthread -lm -static -pg
+CFLAGS := -DDSP -DNDEBUG -DKLT_USE_QSORT -march=armv7-a -mtune=cortex-a8 -mabi=aapcs-linux -O3 -mfloat-abi=softfp -mfpu=neon -ftree-vectorize -ffast-math -funroll-all-loops -pg
 LIBS :=
 BIN := klt
 

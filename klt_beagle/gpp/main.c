@@ -36,12 +36,12 @@ int main (int argc, char **argv)
 	KLT_FeatureTable ft;
 	int ncols, nrows;
 	int i;
-	int window_hw, window_hh;
-	// int loop_count;
+
 	// TODO
 	int nFeatures = 512;
-	int nFrames = 1;
-	Char8 *strBufferSize = "2048";
+	int nFrames = 10;
+	int rows_dsp = 50;
+	Char8 *strBufferSize = "800000";
 
 
 	if (argc == 2) {
@@ -55,24 +55,24 @@ int main (int argc, char **argv)
 	tc = KLTCreateTrackingContext();
 	fl = KLTCreateFeatureList(nFeatures);
 	ft = KLTCreateFeatureTable(nFrames, nFeatures);
+
 	tc->sequentialMode = TRUE;
 	tc->writeInternalImages = FALSE;
 	tc->affineConsistencyCheck = -1;  /* set this to 2 to turn on affine consistency check */
 
-	window_hw = tc->window_width / 2;
-	window_hh = tc->window_height / 2;
+
+	// Just open the pool
+	pool_Main(dspExecutable, strBufferSize, tc);
 
 	startTimer(&appTimer);
 	img1 = pgmReadFile("img0.pgm", NULL, &ncols, &nrows);
 	img2 = (unsigned char *) malloc(ncols * nrows * sizeof(unsigned char));
 
-	// total cycles DSP needs to execute
-	// loop_count = (nrows - 2 * tc->bordery) * (ncols - 2 * tc->borderx) / (tc->nSkippedPixels + 1) / (tc->nSkippedPixels + 1);
 
-	// Just open the pool
-	pool_Main(dspExecutable, strBufferSize, (Uint32)window_hh, (Uint32)window_hw);
 
-	KLTSelectGoodFeatures(tc, img1, ncols, nrows, fl);
+
+
+	KLTSelectGoodFeatures(tc, img1, ncols, nrows, fl, rows_dsp);
 	KLTStoreFeatureList(fl, ft, 0);
 	KLTWriteFeatureListToPPM(fl, img1, ncols, nrows, "feat0.ppm");
 
@@ -82,7 +82,7 @@ int main (int argc, char **argv)
 		KLTTrackFeatures(tc, img1, img2, ncols, nrows, fl);
 
 #ifdef REPLACE
-		KLTReplaceLostFeatures(tc, img2, ncols, nrows, fl);
+		KLTReplaceLostFeatures(tc, img2, ncols, nrows, fl, rows_dsp);
 #endif
 
 		KLTStoreFeatureList(fl, ft, i);
